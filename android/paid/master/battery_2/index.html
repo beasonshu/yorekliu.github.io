@@ -90,31 +90,66 @@
         <span class=c1>// 在这里增加Wakelock 释放监控逻辑</span>
     <span class=p>}</span>
 <span class=p>}</span>
-</code></pre></div> </td></tr></table> <p>Facebook 也有一个耗电监控的开源库<a href=https://github.com/facebookincubator/Battery-Metrics>Battery-Metrics</a>，它监控的数据非常全，包括 Alarm、WakeLock、Camera、CPU、Network 等，而且也有收集电量充电状态、电量水平等信息。</p> <p>Battery-Metrics 只是提供了一系列的基础类，在实际使用中，接入者可能需要修改大量的源码。但对于一些第三方 SDK 或者后续增加的代码，我们可能就不太能保证可以监控到了。这些场景也就无法监控了，所以 Facebook 内部是使用插桩来动态替换。</p> <p>遗憾的是，Facebook 并没有开源它们内部的插桩具体实现方案。不过这实现起来其实并不困难，事实上在我们前面的 Sample 中，已经使用过 ASM、Aspectj 这两种插桩方案了。后面我也安排单独一期内容来讲不同插桩方案的实现。</p> <p>插桩方案使用起来兼容性非常好，并且使用者也没有太大的接入成本。但是它并不是完美无缺的，对于系统的代码插桩方案是无法替换的，例如 JobService 申请 PARTIAL_WAKE_LOCK 的场景。</p> <h2 id=_4>总结<a class=headerlink href=#_4 title="Permanent link">&para;</a></h2> <p>从 Android 系统计算耗电的方法，我们知道了需要关注哪些模块的耗电。从 Android 耗电优化的演进历程，我们知道了 Android 在耗电优化的一些方向以及在意的点。从 Android Vitals 的耗电监控，我们知道了耗电优化的监控方式。</p> <p>但是系统的方法不一定可以完全适合我们的应用，还是需要通过进一步阅读源码、思考，沉淀出一套我们自己的优化实践方案。这也是我的 <strong>性能优化方法论</strong>，在其他的领域也是如此。</p> <h2 id=_5>课后作业<a class=headerlink href=#_5 title="Permanent link">&para;</a></h2> <p>今天的课后练习是，按照文中的思路，使用 Java Hook 实现 Alarm、WakeLock 和 GPS 的耗电监控。具体的规则跟文中表格一致，请将完善后的代码通过 Pull requests 提交到<a href=https://github.com/AndroidAdvanceWithGeektime/Chapter19/ >Chapter19</a>中。</p> <p>练习中都可以通过hook替换上面三个Service中的远程代理Service，然后通过方法名过滤出来对应的操作。下面代码仅仅hook了相应的Service，并打印出了调用堆栈，其他统计信息需要进一步的实现：</p> <p>```xml tab="AndroidManifest.xml" hl_lines="6 7 8 23 24 25 26 27" &lt;?xml version="1.0" encoding="utf-8"?&gt; <manifest package=com.sample.battery xmlns:android=http://schemas.android.com/apk/res/android></p> <div class=codehilite><pre><span></span><code>&lt;!-- 注意权限 --&gt;
-&lt;uses-permission android:name=&quot;android.permission.WAKE_LOCK&quot; /&gt;
-&lt;uses-permission android:name=&quot;android.permission.ACCESS_FINE_LOCATION&quot; /&gt;
-&lt;uses-permission android:name=&quot;android.permission.ACCESS_COARSE_LOCATION&quot; /&gt;
+</code></pre></div> </td></tr></table> <p>Facebook 也有一个耗电监控的开源库<a href=https://github.com/facebookincubator/Battery-Metrics>Battery-Metrics</a>，它监控的数据非常全，包括 Alarm、WakeLock、Camera、CPU、Network 等，而且也有收集电量充电状态、电量水平等信息。</p> <p>Battery-Metrics 只是提供了一系列的基础类，在实际使用中，接入者可能需要修改大量的源码。但对于一些第三方 SDK 或者后续增加的代码，我们可能就不太能保证可以监控到了。这些场景也就无法监控了，所以 Facebook 内部是使用插桩来动态替换。</p> <p>遗憾的是，Facebook 并没有开源它们内部的插桩具体实现方案。不过这实现起来其实并不困难，事实上在我们前面的 Sample 中，已经使用过 ASM、Aspectj 这两种插桩方案了。后面我也安排单独一期内容来讲不同插桩方案的实现。</p> <p>插桩方案使用起来兼容性非常好，并且使用者也没有太大的接入成本。但是它并不是完美无缺的，对于系统的代码插桩方案是无法替换的，例如 JobService 申请 PARTIAL_WAKE_LOCK 的场景。</p> <h2 id=_4>总结<a class=headerlink href=#_4 title="Permanent link">&para;</a></h2> <p>从 Android 系统计算耗电的方法，我们知道了需要关注哪些模块的耗电。从 Android 耗电优化的演进历程，我们知道了 Android 在耗电优化的一些方向以及在意的点。从 Android Vitals 的耗电监控，我们知道了耗电优化的监控方式。</p> <p>但是系统的方法不一定可以完全适合我们的应用，还是需要通过进一步阅读源码、思考，沉淀出一套我们自己的优化实践方案。这也是我的 <strong>性能优化方法论</strong>，在其他的领域也是如此。</p> <h2 id=_5>课后作业<a class=headerlink href=#_5 title="Permanent link">&para;</a></h2> <p>今天的课后练习是，按照文中的思路，使用 Java Hook 实现 Alarm、WakeLock 和 GPS 的耗电监控。具体的规则跟文中表格一致，请将完善后的代码通过 Pull requests 提交到<a href=https://github.com/AndroidAdvanceWithGeektime/Chapter19/ >Chapter19</a>中。</p> <p>练习中都可以通过hook替换上面三个Service中的远程代理Service，然后通过方法名过滤出来对应的操作。下面代码仅仅hook了相应的Service，并打印出了调用堆栈，其他统计信息需要进一步的实现：</p> <div class=tabbed-set data-tabs=1:7><input checked=checked id=__tabbed_1_1 name=__tabbed_1 type=radio><label for=__tabbed_1_1>AndroidManifest.xml</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=cp>&lt;?xml version=&quot;1.0&quot; encoding=&quot;utf-8&quot;?&gt;</span>
+<span class=nt>&lt;manifest</span> <span class=na>package=</span><span class=s>&quot;com.sample.battery&quot;</span>
+          <span class=na>xmlns:android=</span><span class=s>&quot;http://schemas.android.com/apk/res/android&quot;</span><span class=nt>&gt;</span>
 
-&lt;application
-    android:allowBackup=&quot;true&quot;
-    android:icon=&quot;@mipmap/ic_launcher&quot;
-    android:label=&quot;@string/app_name&quot;
-    android:roundIcon=&quot;@mipmap/ic_launcher_round&quot;
-    android:supportsRtl=&quot;true&quot;&gt;
-    &lt;activity
-            android:name=&quot;com.sample.battery.MainActivity&quot;&gt;
-        &lt;intent-filter&gt;
-            &lt;action android:name=&quot;android.intent.action.MAIN&quot;/&gt;
-            &lt;category android:name=&quot;android.intent.category.LAUNCHER&quot;/&gt;
-        &lt;/intent-filter&gt;
-    &lt;/activity&gt;
-    &lt;receiver android:name=&quot;.MainActivity$MyAlarmReceiver&quot;&gt;
-        &lt;intent-filter&gt;
-            &lt;action android:name=&quot;intent_alarm&quot;/&gt;
-        &lt;/intent-filter&gt;
-    &lt;/receiver&gt;
-&lt;/application&gt;
-</code></pre></div> <p></manifest> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span>  1
+    <span class=c>&lt;!-- 注意权限 --&gt;</span>
+<span class=hll>    <span class=nt>&lt;uses-permission</span> <span class=na>android:name=</span><span class=s>&quot;android.permission.WAKE_LOCK&quot;</span> <span class=nt>/&gt;</span>
+</span><span class=hll>    <span class=nt>&lt;uses-permission</span> <span class=na>android:name=</span><span class=s>&quot;android.permission.ACCESS_FINE_LOCATION&quot;</span> <span class=nt>/&gt;</span>
+</span><span class=hll>    <span class=nt>&lt;uses-permission</span> <span class=na>android:name=</span><span class=s>&quot;android.permission.ACCESS_COARSE_LOCATION&quot;</span> <span class=nt>/&gt;</span>
+</span>
+    <span class=nt>&lt;application</span>
+        <span class=na>android:allowBackup=</span><span class=s>&quot;true&quot;</span>
+        <span class=na>android:icon=</span><span class=s>&quot;@mipmap/ic_launcher&quot;</span>
+        <span class=na>android:label=</span><span class=s>&quot;@string/app_name&quot;</span>
+        <span class=na>android:roundIcon=</span><span class=s>&quot;@mipmap/ic_launcher_round&quot;</span>
+        <span class=na>android:supportsRtl=</span><span class=s>&quot;true&quot;</span><span class=nt>&gt;</span>
+        <span class=nt>&lt;activity</span>
+                <span class=na>android:name=</span><span class=s>&quot;com.sample.battery.MainActivity&quot;</span><span class=nt>&gt;</span>
+            <span class=nt>&lt;intent-filter&gt;</span>
+                <span class=nt>&lt;action</span> <span class=na>android:name=</span><span class=s>&quot;android.intent.action.MAIN&quot;</span><span class=nt>/&gt;</span>
+                <span class=nt>&lt;category</span> <span class=na>android:name=</span><span class=s>&quot;android.intent.category.LAUNCHER&quot;</span><span class=nt>/&gt;</span>
+            <span class=nt>&lt;/intent-filter&gt;</span>
+        <span class=nt>&lt;/activity&gt;</span>
+<span class=hll>        <span class=nt>&lt;receiver</span> <span class=na>android:name=</span><span class=s>&quot;.MainActivity$MyAlarmReceiver&quot;</span><span class=nt>&gt;</span>
+</span><span class=hll>            <span class=nt>&lt;intent-filter&gt;</span>
+</span><span class=hll>                <span class=nt>&lt;action</span> <span class=na>android:name=</span><span class=s>&quot;intent_alarm&quot;</span><span class=nt>/&gt;</span>
+</span><span class=hll>            <span class=nt>&lt;/intent-filter&gt;</span>
+</span><span class=hll>        <span class=nt>&lt;/receiver&gt;</span>
+</span>    <span class=nt>&lt;/application&gt;</span>
+
+<span class=nt>&lt;/manifest&gt;</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_2 name=__tabbed_1 type=radio><label for=__tabbed_1_2>MainActivity.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span>  1
   2
   3
   4
@@ -267,231 +302,384 @@
 151
 152
 153
-154
-155</pre></div></td><td class=code><div class=highlight><pre><span></span><code>```java tab=&quot;MainActivity.java&quot;
-/**
- * 本类都是一些Alarm、WakeLock、Location的使用
- */
-public class MainActivity extends Activity {
-    public static Context sContext;
+154</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=cm>/**</span>
+<span class=cm> * 本类都是一些Alarm、WakeLock、Location的使用</span>
+<span class=cm> */</span>
+<span class=kd>public</span> <span class=kd>class</span> <span class=nc>MainActivity</span> <span class=kd>extends</span> <span class=n>Activity</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=n>Context</span> <span class=n>sContext</span><span class=p>;</span>
 
-    Handler handler = new Handler();
+    <span class=n>Handler</span> <span class=n>handler</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Handler</span><span class=p>();</span>
 
-    @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
-        sContext = getApplicationContext();
-        final Button hookAlarm = (Button) findViewById(R.id.hook_alarm);
-        hookAlarm.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Hooker.hookAlarm(getApplicationContext());
-            }
-        });
+    <span class=nd>@Override</span>
+    <span class=kd>protected</span> <span class=kt>void</span> <span class=nf>onCreate</span><span class=p>(</span><span class=n>Bundle</span> <span class=n>savedInstanceState</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kd>super</span><span class=p>.</span><span class=na>onCreate</span><span class=p>(</span><span class=n>savedInstanceState</span><span class=p>);</span>
+        <span class=n>setContentView</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>layout</span><span class=p>.</span><span class=na>activity_main</span><span class=p>);</span>
+        <span class=n>sContext</span> <span class=o>=</span> <span class=n>getApplicationContext</span><span class=p>();</span>
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>hookAlarm</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>hook_alarm</span><span class=p>);</span>
+        <span class=n>hookAlarm</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>Hooker</span><span class=p>.</span><span class=na>hookAlarm</span><span class=p>(</span><span class=n>getApplicationContext</span><span class=p>());</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
 
-        final Button hookWakelock = (Button) findViewById(R.id.hook_wakelock);
-        hookWakelock.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Hooker.hookWakeLock(getApplicationContext());
-            }
-        });
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>hookWakelock</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>hook_wakelock</span><span class=p>);</span>
+        <span class=n>hookWakelock</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>Hooker</span><span class=p>.</span><span class=na>hookWakeLock</span><span class=p>(</span><span class=n>getApplicationContext</span><span class=p>());</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        final Button hookGPS = (Button) findViewById(R.id.hook_gps);
-        hookGPS.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Hooker.hookLocation(getApplicationContext());
-            }
-        });
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>hookGPS</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>hook_gps</span><span class=p>);</span>
+        <span class=n>hookGPS</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>Hooker</span><span class=p>.</span><span class=na>hookLocation</span><span class=p>(</span><span class=n>getApplicationContext</span><span class=p>());</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        findViewById(R.id.btn_set_alarm).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setAlarm();
-            }
-        });
-        findViewById(R.id.btn_cancel_alarm).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                cancelAlarm();
-            }
-        });
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_set_alarm</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>setAlarm</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_cancel_alarm</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>cancelAlarm</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        findViewById(R.id.btn_acquire_wakelock).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                acquireWakeLock();
-            }
-        });
-        findViewById(R.id.btn_release_wakelock).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                releaseWakeLock();
-            }
-        });
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_acquire_wakelock</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>acquireWakeLock</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_release_wakelock</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>releaseWakeLock</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        findViewById(R.id.btn_request_location).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                requestLocation();
-            }
-        });
-        findViewById(R.id.btn_remove_location).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                removeLocation();
-            }
-        });
-    }
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_request_location</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>requestLocation</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>btn_remove_location</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>removeLocation</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+    <span class=p>}</span>
 
-    private void setAlarm() {
-        AlarmManager alarmService = (AlarmManager) sContext.getSystemService(ALARM_SERVICE);
-        Intent alarmIntent = new Intent(sContext, MyAlarmReceiver.class).setAction(&quot;intent_alarm&quot;);
-        PendingIntent broadcast = PendingIntent.getBroadcast(sContext, 0, alarmIntent, 0);//通过广播接收
-        alarmService.set(AlarmManager.RTC_WAKEUP, System.currentTimeMillis() + 2000, broadcast);//INTERVAL毫秒后触
-    }
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>setAlarm</span><span class=p>()</span> <span class=p>{</span>
+        <span class=n>AlarmManager</span> <span class=n>alarmService</span> <span class=o>=</span> <span class=p>(</span><span class=n>AlarmManager</span><span class=p>)</span> <span class=n>sContext</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>ALARM_SERVICE</span><span class=p>);</span>
+        <span class=n>Intent</span> <span class=n>alarmIntent</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Intent</span><span class=p>(</span><span class=n>sContext</span><span class=p>,</span> <span class=n>MyAlarmReceiver</span><span class=p>.</span><span class=na>class</span><span class=p>).</span><span class=na>setAction</span><span class=p>(</span><span class=s>&quot;intent_alarm&quot;</span><span class=p>);</span>
+        <span class=n>PendingIntent</span> <span class=n>broadcast</span> <span class=o>=</span> <span class=n>PendingIntent</span><span class=p>.</span><span class=na>getBroadcast</span><span class=p>(</span><span class=n>sContext</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>alarmIntent</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span><span class=c1>//通过广播接收</span>
+        <span class=n>alarmService</span><span class=p>.</span><span class=na>set</span><span class=p>(</span><span class=n>AlarmManager</span><span class=p>.</span><span class=na>RTC_WAKEUP</span><span class=p>,</span> <span class=n>System</span><span class=p>.</span><span class=na>currentTimeMillis</span><span class=p>()</span> <span class=o>+</span> <span class=mi>2000</span><span class=p>,</span> <span class=n>broadcast</span><span class=p>);</span><span class=c1>//INTERVAL毫秒后触</span>
+    <span class=p>}</span>
 
-    private void cancelAlarm() {
-        AlarmManager alarmService = (AlarmManager) sContext.getSystemService(ALARM_SERVICE);
-        Intent alarmIntent = new Intent(sContext, MyAlarmReceiver.class).setAction(&quot;intent_alarm&quot;);
-        PendingIntent broadcast = PendingIntent.getBroadcast(sContext, 0, alarmIntent, 0);
-        alarmService.cancel(broadcast);
-    }
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>cancelAlarm</span><span class=p>()</span> <span class=p>{</span>
+        <span class=n>AlarmManager</span> <span class=n>alarmService</span> <span class=o>=</span> <span class=p>(</span><span class=n>AlarmManager</span><span class=p>)</span> <span class=n>sContext</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>ALARM_SERVICE</span><span class=p>);</span>
+        <span class=n>Intent</span> <span class=n>alarmIntent</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Intent</span><span class=p>(</span><span class=n>sContext</span><span class=p>,</span> <span class=n>MyAlarmReceiver</span><span class=p>.</span><span class=na>class</span><span class=p>).</span><span class=na>setAction</span><span class=p>(</span><span class=s>&quot;intent_alarm&quot;</span><span class=p>);</span>
+        <span class=n>PendingIntent</span> <span class=n>broadcast</span> <span class=o>=</span> <span class=n>PendingIntent</span><span class=p>.</span><span class=na>getBroadcast</span><span class=p>(</span><span class=n>sContext</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>alarmIntent</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+        <span class=n>alarmService</span><span class=p>.</span><span class=na>cancel</span><span class=p>(</span><span class=n>broadcast</span><span class=p>);</span>
+    <span class=p>}</span>
 
-    public static class MyAlarmReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(&quot;Yorek&quot;, &quot;onReceive&quot;);
-        }
-    }
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kd>class</span> <span class=nc>MyAlarmReceiver</span> <span class=kd>extends</span> <span class=n>BroadcastReceiver</span> <span class=p>{</span>
+        <span class=nd>@Override</span>
+        <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onReceive</span><span class=p>(</span><span class=n>Context</span> <span class=n>context</span><span class=p>,</span> <span class=n>Intent</span> <span class=n>intent</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>d</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;onReceive&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
 
-    private PowerManager.WakeLock wakeLock;
-    private void acquireWakeLock() {
-        PowerManager powerManager = (PowerManager) sContext.getSystemService(POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, this.getClass().getName());//持有唤醒锁
-        wakeLock.setReferenceCounted(false);
-        wakeLock.acquire(60 * 1000); //亮屏60s
-    }
+    <span class=kd>private</span> <span class=n>PowerManager</span><span class=p>.</span><span class=na>WakeLock</span> <span class=n>wakeLock</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>acquireWakeLock</span><span class=p>()</span> <span class=p>{</span>
+        <span class=n>PowerManager</span> <span class=n>powerManager</span> <span class=o>=</span> <span class=p>(</span><span class=n>PowerManager</span><span class=p>)</span> <span class=n>sContext</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>POWER_SERVICE</span><span class=p>);</span>
+        <span class=n>wakeLock</span> <span class=o>=</span> <span class=n>powerManager</span><span class=p>.</span><span class=na>newWakeLock</span><span class=p>(</span><span class=n>PowerManager</span><span class=p>.</span><span class=na>PARTIAL_WAKE_LOCK</span><span class=p>,</span> <span class=k>this</span><span class=p>.</span><span class=na>getClass</span><span class=p>().</span><span class=na>getName</span><span class=p>());</span><span class=c1>//持有唤醒锁</span>
+        <span class=n>wakeLock</span><span class=p>.</span><span class=na>setReferenceCounted</span><span class=p>(</span><span class=kc>false</span><span class=p>);</span>
+        <span class=n>wakeLock</span><span class=p>.</span><span class=na>acquire</span><span class=p>(</span><span class=mi>60</span> <span class=o>*</span> <span class=mi>1000</span><span class=p>);</span> <span class=c1>//亮屏60s</span>
+    <span class=p>}</span>
 
-    private void releaseWakeLock() {
-        if (wakeLock != null) {
-            wakeLock.release();
-        }
-    }
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>releaseWakeLock</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>wakeLock</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>wakeLock</span><span class=p>.</span><span class=na>release</span><span class=p>();</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
 
-    private LocationManager locationManager;
-    private void requestLocation() {
-        if (ContextCompat.checkSelfPermission(MainActivity.this, ACCESS_FINE_LOCATION)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(MainActivity.this,
-                    new String[]{ACCESS_FINE_LOCATION}, 100);
-        } else {
-            locationManager = (LocationManager) sContext.getSystemService(LOCATION_SERVICE);
-            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 3000, 1, locationListener);
-        }
-    }
+    <span class=kd>private</span> <span class=n>LocationManager</span> <span class=n>locationManager</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>requestLocation</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>ContextCompat</span><span class=p>.</span><span class=na>checkSelfPermission</span><span class=p>(</span><span class=n>MainActivity</span><span class=p>.</span><span class=na>this</span><span class=p>,</span> <span class=n>ACCESS_FINE_LOCATION</span><span class=p>)</span>
+                <span class=o>!=</span> <span class=n>PackageManager</span><span class=p>.</span><span class=na>PERMISSION_GRANTED</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>ActivityCompat</span><span class=p>.</span><span class=na>requestPermissions</span><span class=p>(</span><span class=n>MainActivity</span><span class=p>.</span><span class=na>this</span><span class=p>,</span>
+                    <span class=k>new</span> <span class=n>String</span><span class=o>[]</span><span class=p>{</span><span class=n>ACCESS_FINE_LOCATION</span><span class=p>},</span> <span class=mi>100</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+            <span class=n>locationManager</span> <span class=o>=</span> <span class=p>(</span><span class=n>LocationManager</span><span class=p>)</span> <span class=n>sContext</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>LOCATION_SERVICE</span><span class=p>);</span>
+            <span class=n>locationManager</span><span class=p>.</span><span class=na>requestLocationUpdates</span><span class=p>(</span><span class=n>LocationManager</span><span class=p>.</span><span class=na>GPS_PROVIDER</span><span class=p>,</span> <span class=mi>3000</span><span class=p>,</span> <span class=mi>1</span><span class=p>,</span> <span class=n>locationListener</span><span class=p>);</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
 
-    private void removeLocation() {
-        if (locationManager != null &amp;&amp; locationListener != null) {
-            // 关闭程序时将监听器移除
-            locationManager.removeUpdates(locationListener);
-        }
-    }
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>removeLocation</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>locationManager</span> <span class=o>!=</span> <span class=kc>null</span> <span class=o>&amp;&amp;</span> <span class=n>locationListener</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=c1>// 关闭程序时将监听器移除</span>
+            <span class=n>locationManager</span><span class=p>.</span><span class=na>removeUpdates</span><span class=p>(</span><span class=n>locationListener</span><span class=p>);</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
 
-    private LocationListener locationListener = new LocationListener() {
-        @Override
-        public void onLocationChanged(Location location) {
-            Log.e(&quot;Yorek&quot;, &quot;onLocationChanged &gt;&gt; &quot; + location.toString());
-        }
+    <span class=kd>private</span> <span class=n>LocationListener</span> <span class=n>locationListener</span> <span class=o>=</span> <span class=k>new</span> <span class=n>LocationListener</span><span class=p>()</span> <span class=p>{</span>
+        <span class=nd>@Override</span>
+        <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onLocationChanged</span><span class=p>(</span><span class=n>Location</span> <span class=n>location</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;onLocationChanged &gt;&gt; &quot;</span> <span class=o>+</span> <span class=n>location</span><span class=p>.</span><span class=na>toString</span><span class=p>());</span>
+        <span class=p>}</span>
 
-        @Override
-        public void onStatusChanged(String provider, int status, Bundle extras) {
-            Log.e(&quot;Yorek&quot;, &quot;onStatusChanged &gt;&gt; &quot; + provider);
-        }
+        <span class=nd>@Override</span>
+        <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onStatusChanged</span><span class=p>(</span><span class=n>String</span> <span class=n>provider</span><span class=p>,</span> <span class=kt>int</span> <span class=n>status</span><span class=p>,</span> <span class=n>Bundle</span> <span class=n>extras</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;onStatusChanged &gt;&gt; &quot;</span> <span class=o>+</span> <span class=n>provider</span><span class=p>);</span>
+        <span class=p>}</span>
 
-        @Override
-        public void onProviderEnabled(String provider) {
-            Log.e(&quot;Yorek&quot;, &quot;onProviderEnabled &gt;&gt; &quot; + provider);
-        }
+        <span class=nd>@Override</span>
+        <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onProviderEnabled</span><span class=p>(</span><span class=n>String</span> <span class=n>provider</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;onProviderEnabled &gt;&gt; &quot;</span> <span class=o>+</span> <span class=n>provider</span><span class=p>);</span>
+        <span class=p>}</span>
 
-        @Override
-        public void onProviderDisabled(String provider) {
-            Log.e(&quot;Yorek&quot;, &quot;onProviderDisabled &gt;&gt; &quot; + provider);
-        }
-    };
-}
-</code></pre></div> </td></tr></table></p> <p>```java tab="Hooker.java" /** * Hook响应的Service，并在对应的方法调用中打印堆栈 */ public class Hooker { public static void hookAlarm(Context context) { Object alarmManager = context.getSystemService(Context.ALARM_SERVICE); final String[] hookedMethodName = {"set", "remove"}; hookInner(alarmManager, hookedMethodName); }</p> <div class=codehilite><pre><span></span><code>public static void hookWakeLock(Context context) {
-    Object powerManager = context.getSystemService(Context.POWER_SERVICE);
-    final String[] hookedMethodName = {&quot;acquireWakeLock&quot;, &quot;releaseWakeLock&quot;};
-    hookInner(powerManager, hookedMethodName);
-}
+        <span class=nd>@Override</span>
+        <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onProviderDisabled</span><span class=p>(</span><span class=n>String</span> <span class=n>provider</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;onProviderDisabled &gt;&gt; &quot;</span> <span class=o>+</span> <span class=n>provider</span><span class=p>);</span>
+        <span class=p>}</span>
+    <span class=p>};</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_3 name=__tabbed_1 type=radio><label for=__tabbed_1_3>Hooker.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=cm>/**</span>
+<span class=cm> * Hook响应的Service，并在对应的方法调用中打印堆栈</span>
+<span class=cm> */</span>
+<span class=kd>public</span> <span class=kd>class</span> <span class=nc>Hooker</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>hookAlarm</span><span class=p>(</span><span class=n>Context</span> <span class=n>context</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>Object</span> <span class=n>alarmManager</span> <span class=o>=</span> <span class=n>context</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>Context</span><span class=p>.</span><span class=na>ALARM_SERVICE</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>hookedMethodName</span> <span class=o>=</span> <span class=p>{</span><span class=s>&quot;set&quot;</span><span class=p>,</span> <span class=s>&quot;remove&quot;</span><span class=p>};</span>
+        <span class=n>hookInner</span><span class=p>(</span><span class=n>alarmManager</span><span class=p>,</span> <span class=n>hookedMethodName</span><span class=p>);</span>
+    <span class=p>}</span>
 
-public static void hookLocation(Context context) {
-    Object powerManager = context.getSystemService(Context.LOCATION_SERVICE);
-    final String[] hookedMethodName = {&quot;requestLocationUpdates&quot;, &quot;removeUpdates&quot;};
-    hookInner(powerManager, hookedMethodName);
-}
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>hookWakeLock</span><span class=p>(</span><span class=n>Context</span> <span class=n>context</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>Object</span> <span class=n>powerManager</span> <span class=o>=</span> <span class=n>context</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>Context</span><span class=p>.</span><span class=na>POWER_SERVICE</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>hookedMethodName</span> <span class=o>=</span> <span class=p>{</span><span class=s>&quot;acquireWakeLock&quot;</span><span class=p>,</span> <span class=s>&quot;releaseWakeLock&quot;</span><span class=p>};</span>
+        <span class=n>hookInner</span><span class=p>(</span><span class=n>powerManager</span><span class=p>,</span> <span class=n>hookedMethodName</span><span class=p>);</span>
+    <span class=p>}</span>
 
-private static void hookInner(Object object, final String[] hookedMethodName) {
-    ProxyHook.hook(object, &quot;mService&quot;, new MethodCalledListener() {
-        @Override
-        public boolean handleMethod(Object object, Method method, Object[] args) {
-            String methodName = method.getName();
-            if (isMatch(hookedMethodName, methodName)) {
-                StackTracePrinter.printStackTrace(methodName);
-            }
-            return false;
-        }
-    });
-}
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>hookLocation</span><span class=p>(</span><span class=n>Context</span> <span class=n>context</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>Object</span> <span class=n>powerManager</span> <span class=o>=</span> <span class=n>context</span><span class=p>.</span><span class=na>getSystemService</span><span class=p>(</span><span class=n>Context</span><span class=p>.</span><span class=na>LOCATION_SERVICE</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>hookedMethodName</span> <span class=o>=</span> <span class=p>{</span><span class=s>&quot;requestLocationUpdates&quot;</span><span class=p>,</span> <span class=s>&quot;removeUpdates&quot;</span><span class=p>};</span>
+        <span class=n>hookInner</span><span class=p>(</span><span class=n>powerManager</span><span class=p>,</span> <span class=n>hookedMethodName</span><span class=p>);</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>hookInner</span><span class=p>(</span><span class=n>Object</span> <span class=n>object</span><span class=p>,</span> <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>hookedMethodName</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>ProxyHook</span><span class=p>.</span><span class=na>hook</span><span class=p>(</span><span class=n>object</span><span class=p>,</span> <span class=s>&quot;mService&quot;</span><span class=p>,</span> <span class=k>new</span> <span class=n>MethodCalledListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>boolean</span> <span class=nf>handleMethod</span><span class=p>(</span><span class=n>Object</span> <span class=n>object</span><span class=p>,</span> <span class=n>Method</span> <span class=n>method</span><span class=p>,</span> <span class=n>Object</span><span class=o>[]</span> <span class=n>args</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>String</span> <span class=n>methodName</span> <span class=o>=</span> <span class=n>method</span><span class=p>.</span><span class=na>getName</span><span class=p>();</span>
+                <span class=k>if</span> <span class=p>(</span><span class=n>isMatch</span><span class=p>(</span><span class=n>hookedMethodName</span><span class=p>,</span> <span class=n>methodName</span><span class=p>))</span> <span class=p>{</span>
+                    <span class=n>StackTracePrinter</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>(</span><span class=n>methodName</span><span class=p>);</span>
+                <span class=p>}</span>
+                <span class=k>return</span> <span class=kc>false</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+    <span class=p>}</span>
 
 
-private static boolean isMatch(String[] methodNameList, String method) {
-    for (String str: methodNameList) {
-        if (method.equals(str)) {
-            return true;
-        }
-    }
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kt>boolean</span> <span class=nf>isMatch</span><span class=p>(</span><span class=n>String</span><span class=o>[]</span> <span class=n>methodNameList</span><span class=p>,</span> <span class=n>String</span> <span class=n>method</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>for</span> <span class=p>(</span><span class=n>String</span> <span class=n>str</span><span class=p>:</span> <span class=n>methodNameList</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>method</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>str</span><span class=p>))</span> <span class=p>{</span>
+                <span class=k>return</span> <span class=kc>true</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
 
-    return false;
-}
-</code></pre></div> <p>} <code></code>java tab="ProxyHook.java" public class ProxyHook { public static void hook(Object object, String fieldName, MethodCalledListener methodCalledListener) { Class&lt;?&gt; clazz = object.getClass(); try { Field field = clazz.getDeclaredField(fieldName); field.setAccessible(true); final Object oldService = field.get(object); Object newService = Proxy.newProxyInstance( oldService.getClass().getClassLoader(), oldService.getClass().getInterfaces(), new SystemInvocationHandler(oldService, methodCalledListener) ); field.set(object, newService); field.setAccessible(false); Log.e("Yorek", "hook success"); } catch (Exception e) { e.printStackTrace(); Log.e("Yorek", "hook failed " + e.getMessage()); } } } ```</p> <p>```java tab="SystemInvocationHandler.java" class SystemInvocationHandler implements InvocationHandler { private Object mOriginObject; private MethodCalledListener mMethodCalledListener;</p> <div class=codehilite><pre><span></span><code>public SystemInvocationHandler(Object originObject, MethodCalledListener methodCalledListener) {
-    mOriginObject = originObject;
-    mMethodCalledListener = methodCalledListener;
-}
+        <span class=k>return</span> <span class=kc>false</span><span class=p>;</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_4 name=__tabbed_1 type=radio><label for=__tabbed_1_4>ProxyHook.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>public</span> <span class=kd>class</span> <span class=nc>ProxyHook</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>hook</span><span class=p>(</span><span class=n>Object</span> <span class=n>object</span><span class=p>,</span> <span class=n>String</span> <span class=n>fieldName</span><span class=p>,</span> <span class=n>MethodCalledListener</span> <span class=n>methodCalledListener</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>Class</span><span class=o>&lt;?&gt;</span> <span class=n>clazz</span> <span class=o>=</span> <span class=n>object</span><span class=p>.</span><span class=na>getClass</span><span class=p>();</span>
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>Field</span> <span class=n>field</span> <span class=o>=</span> <span class=n>clazz</span><span class=p>.</span><span class=na>getDeclaredField</span><span class=p>(</span><span class=n>fieldName</span><span class=p>);</span>
+            <span class=n>field</span><span class=p>.</span><span class=na>setAccessible</span><span class=p>(</span><span class=kc>true</span><span class=p>);</span>
+            <span class=kd>final</span> <span class=n>Object</span> <span class=n>oldService</span> <span class=o>=</span> <span class=n>field</span><span class=p>.</span><span class=na>get</span><span class=p>(</span><span class=n>object</span><span class=p>);</span>
+            <span class=n>Object</span> <span class=n>newService</span> <span class=o>=</span> <span class=n>Proxy</span><span class=p>.</span><span class=na>newProxyInstance</span><span class=p>(</span>
+                <span class=n>oldService</span><span class=p>.</span><span class=na>getClass</span><span class=p>().</span><span class=na>getClassLoader</span><span class=p>(),</span>
+                <span class=n>oldService</span><span class=p>.</span><span class=na>getClass</span><span class=p>().</span><span class=na>getInterfaces</span><span class=p>(),</span>
+                <span class=k>new</span> <span class=n>SystemInvocationHandler</span><span class=p>(</span><span class=n>oldService</span><span class=p>,</span> <span class=n>methodCalledListener</span><span class=p>)</span>
+            <span class=p>);</span>
+            <span class=n>field</span><span class=p>.</span><span class=na>set</span><span class=p>(</span><span class=n>object</span><span class=p>,</span> <span class=n>newService</span><span class=p>);</span>
+            <span class=n>field</span><span class=p>.</span><span class=na>setAccessible</span><span class=p>(</span><span class=kc>false</span><span class=p>);</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;hook success&quot;</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>Exception</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>e</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+            <span class=n>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=s>&quot;hook failed &quot;</span> <span class=o>+</span> <span class=n>e</span><span class=p>.</span><span class=na>getMessage</span><span class=p>());</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_5 name=__tabbed_1 type=radio><label for=__tabbed_1_5>SystemInvocationHandler.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>class</span> <span class=nc>SystemInvocationHandler</span> <span class=kd>implements</span> <span class=n>InvocationHandler</span> <span class=p>{</span>
+    <span class=kd>private</span> <span class=n>Object</span> <span class=n>mOriginObject</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=n>MethodCalledListener</span> <span class=n>mMethodCalledListener</span><span class=p>;</span>
 
-@Override
-public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
-    if (mMethodCalledListener != null) {
-        boolean handled = mMethodCalledListener.handleMethod(mOriginObject, method, args);
-        if (handled) {
-            return null;
-        }
-    }
-    return method.invoke(mOriginObject, args);
-}
-</code></pre></div> <p>} <code></code>java tab="MethodCalledListener.java" public interface MethodCalledListener { boolean handleMethod(Object object, Method method, Object[] args); } ```</p> <p>```java tab="StackTracePrinter.java" public class StackTracePrinter { public static void printStackTrace(String methodName) { Log.d("Yorek", stackTraceToString(methodName + " called\n", new Throwable().getStackTrace())); }</p> <div class=codehilite><pre><span></span><code>private static String stackTraceToString(String methodName, final StackTraceElement[] arr) {
-    if (arr == null) {
-        return &quot;&quot;;
-    }
+    <span class=kd>public</span> <span class=nf>SystemInvocationHandler</span><span class=p>(</span><span class=n>Object</span> <span class=n>originObject</span><span class=p>,</span> <span class=n>MethodCalledListener</span> <span class=n>methodCalledListener</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>mOriginObject</span> <span class=o>=</span> <span class=n>originObject</span><span class=p>;</span>
+        <span class=n>mMethodCalledListener</span> <span class=o>=</span> <span class=n>methodCalledListener</span><span class=p>;</span>
+    <span class=p>}</span>
 
-    StringBuffer sb = new StringBuffer(methodName);
+    <span class=nd>@Override</span>
+    <span class=kd>public</span> <span class=n>Object</span> <span class=nf>invoke</span><span class=p>(</span><span class=n>Object</span> <span class=n>proxy</span><span class=p>,</span> <span class=n>Method</span> <span class=n>method</span><span class=p>,</span> <span class=n>Object</span><span class=o>[]</span> <span class=n>args</span><span class=p>)</span> <span class=kd>throws</span> <span class=n>Throwable</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>mMethodCalledListener</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=kt>boolean</span> <span class=n>handled</span> <span class=o>=</span> <span class=n>mMethodCalledListener</span><span class=p>.</span><span class=na>handleMethod</span><span class=p>(</span><span class=n>mOriginObject</span><span class=p>,</span> <span class=n>method</span><span class=p>,</span> <span class=n>args</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>handled</span><span class=p>)</span> <span class=p>{</span>
+                <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+        <span class=k>return</span> <span class=n>method</span><span class=p>.</span><span class=na>invoke</span><span class=p>(</span><span class=n>mOriginObject</span><span class=p>,</span> <span class=n>args</span><span class=p>);</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_6 name=__tabbed_1 type=radio><label for=__tabbed_1_6>MethodCalledListener.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span>1
+2
+3</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>public</span> <span class=kd>interface</span> <span class=nc>MethodCalledListener</span> <span class=p>{</span>
+    <span class=kt>boolean</span> <span class=nf>handleMethod</span><span class=p>(</span><span class=n>Object</span> <span class=n>object</span><span class=p>,</span> <span class=n>Method</span> <span class=n>method</span><span class=p>,</span> <span class=n>Object</span><span class=o>[]</span> <span class=n>args</span><span class=p>);</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_7 name=__tabbed_1 type=radio><label for=__tabbed_1_7>StackTracePrinter.java</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>public</span> <span class=kd>class</span> <span class=nc>StackTracePrinter</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>printStackTrace</span><span class=p>(</span><span class=n>String</span> <span class=n>methodName</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>Log</span><span class=p>.</span><span class=na>d</span><span class=p>(</span><span class=s>&quot;Yorek&quot;</span><span class=p>,</span> <span class=n>stackTraceToString</span><span class=p>(</span><span class=n>methodName</span> <span class=o>+</span> <span class=s>&quot; called\n&quot;</span><span class=p>,</span> <span class=k>new</span> <span class=n>Throwable</span><span class=p>().</span><span class=na>getStackTrace</span><span class=p>()));</span>
+    <span class=p>}</span>
 
-    for (StackTraceElement stackTraceElement : arr) {
-        String className = stackTraceElement.getClassName();
-        // remove unused stacks
-        if (className.contains(StackTracePrinter.class.getCanonicalName())) {
-            continue;
-        }
+    <span class=kd>private</span> <span class=kd>static</span> <span class=n>String</span> <span class=nf>stackTraceToString</span><span class=p>(</span><span class=n>String</span> <span class=n>methodName</span><span class=p>,</span> <span class=kd>final</span> <span class=n>StackTraceElement</span><span class=o>[]</span> <span class=n>arr</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>arr</span> <span class=o>==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>return</span> <span class=s>&quot;&quot;</span><span class=p>;</span>
+        <span class=p>}</span>
 
-        sb.append(stackTraceElement).append(&#39;\n&#39;);
-    }
-    return sb.toString();
-}
-</code></pre></div> <p>} ```</p> <p>最后，做完上面的练习题，最后发现hook系统service真的不难，只不过上面的这些hook在Android高版本中都是灰名单了。</p> <hr> <div class=md-source-date> <small> 最后更新: <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">2021年2月1日</span> </small> </div> <h2 id=__comments>评论</h2> <div id=disqus_thread></div> <script>var disqus_config=function(){this.page.url="https://blog.yorek.xyz/android/paid/master/battery_2/",this.page.identifier="/android/paid/master/battery_2/"};window.addEventListener("load",function(){var e=document,i=e.createElement("script");i.src="//yorekliu.disqus.com/embed.js",i.setAttribute("data-timestamp",+new Date),(e.head||e.body).appendChild(i)})</script> </article> </div> </div> </main> <footer class=md-footer> <div class=md-footer-nav> <nav class="md-footer-nav__inner md-grid" aria-label=Footer> <a href=../battery_1/ class="md-footer-nav__link md-footer-nav__link--prev" rel=prev> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg> </div> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 上一页 </span> 18 | 耗电优化（上）：从电量优化的演进看耗电分析 </div> </div> </a> <a href=../ui_1/ class="md-footer-nav__link md-footer-nav__link--next" rel=next> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 下一页 </span> 20 | UI 优化（上）：UI 渲染的几个关键概念 </div> </div> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg> </div> </a> </nav> </div> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-footer-copyright> <div class=md-footer-copyright__highlight> &copy; 2021 Yorek </div> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> <div class=md-footer-social> <a href=https://github.com/YorekLiu target=_blank rel=noopener title=github.com class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg> </a> <a href=lyytogether@gmail.com target=_blank rel=noopener title class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg> </a> </div> </div> </div> </footer> </div> <script src=../../../../assets/javascripts/vendor.93c04032.min.js></script> <script src=../../../../assets/javascripts/bundle.83e5331e.min.js></script><script id=__lang type=application/json>{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stemmer", "search.config.separator": "[\\uff0c\\u3002]+", "search.placeholder": "\u641c\u7d22", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing"}</script> <script>
+        <span class=n>StringBuffer</span> <span class=n>sb</span> <span class=o>=</span> <span class=k>new</span> <span class=n>StringBuffer</span><span class=p>(</span><span class=n>methodName</span><span class=p>);</span>
+
+        <span class=k>for</span> <span class=p>(</span><span class=n>StackTraceElement</span> <span class=n>stackTraceElement</span> <span class=p>:</span> <span class=n>arr</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>String</span> <span class=n>className</span> <span class=o>=</span> <span class=n>stackTraceElement</span><span class=p>.</span><span class=na>getClassName</span><span class=p>();</span>
+            <span class=c1>// remove unused stacks</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>className</span><span class=p>.</span><span class=na>contains</span><span class=p>(</span><span class=n>StackTracePrinter</span><span class=p>.</span><span class=na>class</span><span class=p>.</span><span class=na>getCanonicalName</span><span class=p>()))</span> <span class=p>{</span>
+                <span class=k>continue</span><span class=p>;</span>
+            <span class=p>}</span>
+
+            <span class=n>sb</span><span class=p>.</span><span class=na>append</span><span class=p>(</span><span class=n>stackTraceElement</span><span class=p>).</span><span class=na>append</span><span class=p>(</span><span class=sc>&#39;\n&#39;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>return</span> <span class=n>sb</span><span class=p>.</span><span class=na>toString</span><span class=p>();</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> </div> <p>最后，做完上面的练习题，最后发现hook系统service真的不难，只不过上面的这些hook在Android高版本中都是灰名单了。</p> <hr> <div class=md-source-date> <small> 最后更新: <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">2021年3月8日</span> </small> </div> <h2 id=__comments>评论</h2> <div id=disqus_thread></div> <script>var disqus_config=function(){this.page.url="https://blog.yorek.xyz/android/paid/master/battery_2/",this.page.identifier="/android/paid/master/battery_2/"};window.addEventListener("load",function(){var e=document,i=e.createElement("script");i.src="//yorekliu.disqus.com/embed.js",i.setAttribute("data-timestamp",+new Date),(e.head||e.body).appendChild(i)})</script> </article> </div> </div> </main> <footer class=md-footer> <div class=md-footer-nav> <nav class="md-footer-nav__inner md-grid" aria-label=Footer> <a href=../battery_1/ class="md-footer-nav__link md-footer-nav__link--prev" rel=prev> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg> </div> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 上一页 </span> 18 | 耗电优化（上）：从电量优化的演进看耗电分析 </div> </div> </a> <a href=../ui_1/ class="md-footer-nav__link md-footer-nav__link--next" rel=next> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 下一页 </span> 20 | UI 优化（上）：UI 渲染的几个关键概念 </div> </div> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg> </div> </a> </nav> </div> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-footer-copyright> <div class=md-footer-copyright__highlight> &copy; 2021 Yorek </div> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> <div class=md-footer-social> <a href=https://github.com/YorekLiu target=_blank rel=noopener title=github.com class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg> </a> <a href=lyytogether@gmail.com target=_blank rel=noopener title class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg> </a> </div> </div> </div> </footer> </div> <script src=../../../../assets/javascripts/vendor.93c04032.min.js></script> <script src=../../../../assets/javascripts/bundle.83e5331e.min.js></script><script id=__lang type=application/json>{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stemmer", "search.config.separator": "[\\uff0c\\u3002]+", "search.placeholder": "\u641c\u7d22", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing"}</script> <script>
         app = initialize({
           base: "../../../..",
           features: ['navigation.tabs', 'navigation.instant'],

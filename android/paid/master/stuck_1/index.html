@@ -57,177 +57,1525 @@ Threads:
   0.3% 23468/.sample.app(S): 0.3% user + 0% kernel faults：6
   0.3% 23479/HeapTaskDaemon(S): 0.3% user + 0% kernel faults：982
   ...
-</code></pre></div> </td></tr></table> <details class=answer open=open><summary>Answer</summary><p>8核cpu，平均负载8，idle时间去到72%，说明应用运行中系统CPU性能有很大的盈余。<br> sample应用时间分布大头在kernel。再看线程，线程状态R表示正在运行，S表示TASK_INTERRUPTIBLE，在等待某件事情发生（多数是IO）。SingleThread是主要耗时线程，并且共发生了3094次缺页异常(faults字段)。缺页异常的处理是在内核空间，也解释了kernel 耗时大头的原因，而这里做的操作就是读写磁盘。猜测可能是很多小文件的读写。<br> 综合分析瓶颈应该是sample将io集中在一个线程中处理，系统的全部cpu没有利用上，一核忙死，其他3核闲死。</p> </details> <h3 id=demo>Demo<a class=headerlink href=#demo title="Permanent link">&para;</a></h3> <p><a href=https://github.com/AndroidAdvanceWithGeektime/Chapter05>Sample Github</a></p> <p>基本就是仿照<a href=http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/java/com/android/internal/os/ProcessCpuTracker.java>ProcessCpuTracker.java</a>的实现，读取的API换成了IO流实现。</p> <details class=notice open=open><summary>Notice</summary><p>在Android 8.0及以上，部分权限收紧，导致<code>/proc/stat</code>以及<code>/proc/loadavg</code>无法读取到。<br> 使用<code>Runtime.getRuntime().exec()</code>直接cat对应文件也不行。可能是手法错误？不过loadavg可以通过Runtime执行<code>uptime</code>得到。</p> </details> <p>```java tab="MainActivity" public class MainActivity extends Activity { public static Context sContext; public static ProcessCpuTracker processCpuTracker = new ProcessCpuTracker(android.os.Process.myPid());</p> <div class=codehilite><pre><span></span><code>Handler handler = new Handler();
+</code></pre></div> </td></tr></table> <details class=answer open=open><summary>Answer</summary><p>8核cpu，平均负载8，idle时间去到72%，说明应用运行中系统CPU性能有很大的盈余。<br> sample应用时间分布大头在kernel。再看线程，线程状态R表示正在运行，S表示TASK_INTERRUPTIBLE，在等待某件事情发生（多数是IO）。SingleThread是主要耗时线程，并且共发生了3094次缺页异常(faults字段)。缺页异常的处理是在内核空间，也解释了kernel 耗时大头的原因，而这里做的操作就是读写磁盘。猜测可能是很多小文件的读写。<br> 综合分析瓶颈应该是sample将io集中在一个线程中处理，系统的全部cpu没有利用上，一核忙死，其他3核闲死。</p> </details> <h3 id=demo>Demo<a class=headerlink href=#demo title="Permanent link">&para;</a></h3> <p><a href=https://github.com/AndroidAdvanceWithGeektime/Chapter05>Sample Github</a></p> <p>基本就是仿照<a href=http://androidxref.com/9.0.0_r3/xref/frameworks/base/core/java/com/android/internal/os/ProcessCpuTracker.java>ProcessCpuTracker.java</a>的实现，读取的API换成了IO流实现。</p> <details class=notice open=open><summary>Notice</summary><p>在Android 8.0及以上，部分权限收紧，导致<code>/proc/stat</code>以及<code>/proc/loadavg</code>无法读取到。<br> 使用<code>Runtime.getRuntime().exec()</code>直接cat对应文件也不行。可能是手法错误？不过loadavg可以通过Runtime执行<code>uptime</code>得到。</p> </details> <div class=tabbed-set data-tabs=1:4><input checked=checked id=__tabbed_1_1 name=__tabbed_1 type=radio><label for=__tabbed_1_1>MainActivity</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span>  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+ 18
+ 19
+ 20
+ 21
+ 22
+ 23
+ 24
+ 25
+ 26
+ 27
+ 28
+ 29
+ 30
+ 31
+ 32
+ 33
+ 34
+ 35
+ 36
+ 37
+ 38
+ 39
+ 40
+ 41
+ 42
+ 43
+ 44
+ 45
+ 46
+ 47
+ 48
+ 49
+ 50
+ 51
+ 52
+ 53
+ 54
+ 55
+ 56
+ 57
+ 58
+ 59
+ 60
+ 61
+ 62
+ 63
+ 64
+ 65
+ 66
+ 67
+ 68
+ 69
+ 70
+ 71
+ 72
+ 73
+ 74
+ 75
+ 76
+ 77
+ 78
+ 79
+ 80
+ 81
+ 82
+ 83
+ 84
+ 85
+ 86
+ 87
+ 88
+ 89
+ 90
+ 91
+ 92
+ 93
+ 94
+ 95
+ 96
+ 97
+ 98
+ 99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>public</span> <span class=kd>class</span> <span class=nc>MainActivity</span> <span class=kd>extends</span> <span class=n>Activity</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=n>Context</span> <span class=n>sContext</span><span class=p>;</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=n>ProcessCpuTracker</span> <span class=n>processCpuTracker</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ProcessCpuTracker</span><span class=p>(</span><span class=n>android</span><span class=p>.</span><span class=na>os</span><span class=p>.</span><span class=na>Process</span><span class=p>.</span><span class=na>myPid</span><span class=p>());</span>
 
-@Override
-protected void onCreate(Bundle savedInstanceState) {
-    super.onCreate(savedInstanceState);
-    setContentView(R.layout.activity_main);
-    sContext = getApplicationContext();
-    final Button testGc = (Button) findViewById(R.id.test_gc);
-    testGc.setOnClickListener(new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            processCpuTracker.update();
-            testGc();
-            processCpuTracker.update();
-            android.util.Log.e(&quot;ProcessCpuTracker&quot;,
-                    processCpuTracker.printCurrentState(SystemClock.uptimeMillis()));
-        }
-    });
+    <span class=n>Handler</span> <span class=n>handler</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Handler</span><span class=p>();</span>
+
+    <span class=nd>@Override</span>
+    <span class=kd>protected</span> <span class=kt>void</span> <span class=nf>onCreate</span><span class=p>(</span><span class=n>Bundle</span> <span class=n>savedInstanceState</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kd>super</span><span class=p>.</span><span class=na>onCreate</span><span class=p>(</span><span class=n>savedInstanceState</span><span class=p>);</span>
+        <span class=n>setContentView</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>layout</span><span class=p>.</span><span class=na>activity_main</span><span class=p>);</span>
+        <span class=n>sContext</span> <span class=o>=</span> <span class=n>getApplicationContext</span><span class=p>();</span>
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>testGc</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>test_gc</span><span class=p>);</span>
+        <span class=n>testGc</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>update</span><span class=p>();</span>
+                <span class=n>testGc</span><span class=p>();</span>
+                <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>update</span><span class=p>();</span>
+                <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;ProcessCpuTracker&quot;</span><span class=p>,</span>
+                        <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>printCurrentState</span><span class=p>(</span><span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>()));</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
 
-    final Button testIO = (Button) findViewById(R.id.test_io);
-    testIO.setOnClickListener(new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            processCpuTracker.update();
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>testIO</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>test_io</span><span class=p>);</span>
+        <span class=n>testIO</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>update</span><span class=p>();</span>
 
-            testIO();
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-                    processCpuTracker.update();
-                    android.util.Log.e(&quot;ProcessCpuTracker&quot;,
-                            processCpuTracker.printCurrentState(SystemClock.uptimeMillis()));
-                }
-            }, 5000);
-
-
-        }
-    });
-
-    final Button processOut = (Button) findViewById(R.id.test_process);
-    processOut.setOnClickListener(new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            processCpuTracker.update();
-            android.util.Log.e(&quot;ProcessCpuTracker&quot;,
-                    processCpuTracker.printCurrentState(SystemClock.uptimeMillis()));
-
-        }
-    });
-
-    findViewById(R.id.test_uptime).setOnClickListener(new View.OnClickListener() {
-        @Override
-        public void onClick(View v) {
-            execUpTime();
-        }
-    });
-
-}
-
-private void testIO() {
-    Thread thread = new Thread(new Runnable() {
-        @Override
-        public void run() {
-            writeSth();
-
-            try {
-                Thread.sleep(100000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-    });
-    thread.setName(&quot;SingleThread&quot;);
-    thread.start();
-}
+                <span class=n>testIO</span><span class=p>();</span>
+                <span class=n>handler</span><span class=p>.</span><span class=na>postDelayed</span><span class=p>(</span><span class=k>new</span> <span class=n>Runnable</span><span class=p>()</span> <span class=p>{</span>
+                    <span class=nd>@Override</span>
+                    <span class=kd>public</span> <span class=kt>void</span> <span class=nf>run</span><span class=p>()</span> <span class=p>{</span>
+                        <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>update</span><span class=p>();</span>
+                        <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;ProcessCpuTracker&quot;</span><span class=p>,</span>
+                                <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>printCurrentState</span><span class=p>(</span><span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>()));</span>
+                    <span class=p>}</span>
+                <span class=p>},</span> <span class=mi>5000</span><span class=p>);</span>
 
 
-private void testGc() {
-    for (int i = 0; i &lt; 10000; i++) {
-        int[] test = new int[100000];
-        System.gc();
-    }
-}
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-private void execUpTime() {
-   ShellExecutor.execute(&quot;uptime&quot;);
-}
+        <span class=kd>final</span> <span class=n>Button</span> <span class=n>processOut</span> <span class=o>=</span> <span class=p>(</span><span class=n>Button</span><span class=p>)</span> <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>test_process</span><span class=p>);</span>
+        <span class=n>processOut</span><span class=p>.</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>update</span><span class=p>();</span>
+                <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;ProcessCpuTracker&quot;</span><span class=p>,</span>
+                        <span class=n>processCpuTracker</span><span class=p>.</span><span class=na>printCurrentState</span><span class=p>(</span><span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>()));</span>
 
-private void writeSth() {
-    try {
-        File f = new File(getFilesDir(), &quot;aee.txt&quot;);
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        if (f.exists()) {
-            f.delete();
-        }
-        FileOutputStream fos = new FileOutputStream(f);
+        <span class=n>findViewById</span><span class=p>(</span><span class=n>R</span><span class=p>.</span><span class=na>id</span><span class=p>.</span><span class=na>test_uptime</span><span class=p>).</span><span class=na>setOnClickListener</span><span class=p>(</span><span class=k>new</span> <span class=n>View</span><span class=p>.</span><span class=na>OnClickListener</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>onClick</span><span class=p>(</span><span class=n>View</span> <span class=n>v</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>execUpTime</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
 
-        byte[] data = new byte[1024 * 4 * 3000];
+    <span class=p>}</span>
 
-        for (int i = 0; i &lt; 30; i++) {
-            Arrays.fill(data, (byte) i);
-            fos.write(data);
-            fos.flush();
-        }
-        fos.close();
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>testIO</span><span class=p>()</span> <span class=p>{</span>
+        <span class=n>Thread</span> <span class=n>thread</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Thread</span><span class=p>(</span><span class=k>new</span> <span class=n>Runnable</span><span class=p>()</span> <span class=p>{</span>
+            <span class=nd>@Override</span>
+            <span class=kd>public</span> <span class=kt>void</span> <span class=nf>run</span><span class=p>()</span> <span class=p>{</span>
+                <span class=n>writeSth</span><span class=p>();</span>
 
-    } catch (FileNotFoundException e) {
-        e.printStackTrace();
-    } catch (IOException e) {
-        e.printStackTrace();
-    }
-}
-</code></pre></div> <p>} <code></code>java tab="ProcessCpuTracker" /** * 有bug, 之前没有现在有，而且更新的时候也有问题 * 之前有，现在没有，当0处理 <em>/ public class ProcessCpuTracker { private static final String TAG = "ProcessCpuTracker"; // /proc/self/stat private static final int PROCESS_STATS_STATUS = 2 - 2; private static final int PROCESS_STATS_MINOR_FAULTS = 9 - 2; private static final int PROCESS_STATS_MAJOR_FAULTS = 11 - 2; private static final int PROCESS_STATS_UTIME = 13 - 2; private static final int PROCESS_STATS_STIME = 14 - 2; // /proc/ private static final String NR_VOLUNTARY_SWITCHES = "nr_voluntary_switches"; private static final String NR_INVOLUNTARY_SWITCHES = "nr_involuntary_switches"; private static final String SE_IOWAIT_COUNT = "se.statistics.iowait_count"; private static final String SE_IOWAIT_SUM = "se.statistics.iowait_sum"; // /proc/stat private static final int SYSTEM_STATS_USER_TIME = 2; private static final int SYSTEM_STATS_NICE_TIME = 3; private static final int SYSTEM_STATS_SYS_TIME = 4; private static final int SYSTEM_STATS_IDLE_TIME = 5; private static final int SYSTEM_STATS_IOWAIT_TIME = 6; private static final int SYSTEM_STATS_IRQ_TIME = 7; private static final int SYSTEM_STATS_SOFT_IRQ_TIME = 8; // /proc/loadavg private static final int LOAD_AVERAGE_1_MIN = 0; private static final int LOAD_AVERAGE_5_MIN = 1; private static final int LOAD_AVERAGE_15_MIN = 2; // How long a CPU jiffy is in milliseconds. private final long mJiffyMillis; private float mLoad1 = 0; private float mLoad5 = 0; private float mLoad15 = 0; // All times are in milliseconds. They are converted from jiffies to milliseconds // when extracted from the kernel. private long mCurrentSampleTime; private long mLastSampleTime; private long mCurrentSampleRealTime; private long mLastSampleRealTime; private long mCurrentSampleWallTime; private long mLastSampleWallTime; private long mBaseUserTime; private long mBaseSystemTime; private long mBaseIoWaitTime; private long mBaseIrqTime; private long mBaseSoftIrqTime; private long mBaseIdleTime; private int mRelUserTime; private int mRelSystemTime; private int mRelIoWaitTime; private int mRelIrqTime; private int mRelSoftIrqTime; private int mRelIdleTime; private boolean mRelStatsAreGood; private byte[] mBuffer = new byte[4096]; private boolean DEBUG = true; private Stats mCurrentProcStat; private int mCurrentProcID; public static class Stats { public final int pid; final String statFile; final String cmdlineFile; final String threadsDir; final ArrayList<stats> workingThreads; public String baseName; public String name; /*</em> * Time in milliseconds. <em>/ public long base_uptime; /*</em> * Time in milliseconds. <em>/ public long rel_uptime; /*</em> * Time in milliseconds. <em>/ public long base_utime; /*</em> * Time in milliseconds. <em>/ public long base_stime; /*</em> * Time in milliseconds. <em>/ public int rel_utime; /*</em> * Time in milliseconds. <em>/ public int rel_stime; public long base_minfaults; public long base_majfaults; public int rel_minfaults; public int rel_majfaults; public String status; Stats(int _pid, boolean isThread) { pid = _pid; if (isThread) { final File procDir = new File("/proc/self/task", Integer.toString(pid)); workingThreads = null; statFile = procDir + "/stat"; cmdlineFile = new File(procDir, "comm").toString(); threadsDir = null; } else { final File procDir = new File("/proc", Integer.toString(pid)); statFile = new File(procDir, "stat").toString(); cmdlineFile = new File(procDir, "cmdline").toString(); threadsDir = (new File(procDir, "task")).toString(); workingThreads = new ArrayList<stats>(); } } } public ProcessCpuTracker(int id) { long jiffyHz = Sysconf.getScClkTck(); mJiffyMillis = 1000 / jiffyHz; mCurrentProcID = id; mCurrentProcStat = new Stats(mCurrentProcID, false); } public void update() { if (DEBUG) { android.util.Log.v(TAG, "Update: " + this); } final long nowUptime = SystemClock.uptimeMillis(); final long nowRealtime = SystemClock.elapsedRealtime(); final long nowWallTime = System.currentTimeMillis(); final String[] sysCpu = readProcFile("/proc/stat"); //for (int i = 0; i &lt; sysCpu.length; i++) { // android.util.Log.e(TAG,"i:" + i + ", sys:" + sysCpu[i]); //} if (sysCpu != null) { // Total user time is user + nice time. final long usertime = (Long.parseLong(sysCpu[SYSTEM_STATS_USER_TIME]) + Long.parseLong(sysCpu[SYSTEM_STATS_NICE_TIME])) * mJiffyMillis; // Total system time is simply system time. final long systemtime = Long.parseLong(sysCpu[SYSTEM_STATS_SYS_TIME]) * mJiffyMillis; // Total idle time is simply idle time. final long idletime = Long.parseLong(sysCpu[SYSTEM_STATS_IDLE_TIME]) * mJiffyMillis; // Total irq time is iowait + irq + softirq time. final long iowaittime = Long.parseLong(sysCpu[SYSTEM_STATS_IOWAIT_TIME]) * mJiffyMillis; final long irqtime = Long.parseLong(sysCpu[SYSTEM_STATS_IRQ_TIME]) * mJiffyMillis; final long softirqtime = Long.parseLong(sysCpu[SYSTEM_STATS_SOFT_IRQ_TIME]) * mJiffyMillis; // This code is trying to avoid issues with idle time going backwards, // but currently it gets into situations where it triggers most of the time. :( mRelUserTime = (int) (usertime - mBaseUserTime); mRelSystemTime = (int) (systemtime - mBaseSystemTime); mRelIoWaitTime = (int) (iowaittime - mBaseIoWaitTime); mRelIrqTime = (int) (irqtime - mBaseIrqTime); mRelSoftIrqTime = (int) (softirqtime - mBaseSoftIrqTime); mRelIdleTime = (int) (idletime - mBaseIdleTime); mRelStatsAreGood = true; if (DEBUG) { android.util.Log.i(TAG, "Total U:" + (usertime) + " S:" + (systemtime) + " I:" + (idletime) + " W:" + (iowaittime) + " Q:" + (irqtime) + " O:" + (softirqtime)); android.util.Log.i(TAG, "Rel U:" + mRelUserTime + " S:" + mRelSystemTime + " I:" + mRelIdleTime + " Q:" + mRelIrqTime); } mBaseUserTime = usertime; mBaseSystemTime = systemtime; mBaseIoWaitTime = iowaittime; mBaseIrqTime = irqtime; mBaseSoftIrqTime = softirqtime; mBaseIdleTime = idletime; } mLastSampleTime = mCurrentSampleTime; mCurrentSampleTime = nowUptime; mLastSampleRealTime = mCurrentSampleRealTime; mCurrentSampleRealTime = nowRealtime; mLastSampleWallTime = mCurrentSampleWallTime; mCurrentSampleWallTime = nowWallTime; getName(mCurrentProcStat, mCurrentProcStat.cmdlineFile); collectProcsStats("/proc/self/stat", mCurrentProcStat); if (mCurrentProcStat.workingThreads != null) { File[] threadsProcFiles = new File(mCurrentProcStat.threadsDir).listFiles(); for (File thread : threadsProcFiles) { int threadID = Integer.parseInt(thread.getName()); Log.d("xxxxx", "threadId:" + threadID); Stats threadStat = findThreadStat(threadID, mCurrentProcStat.workingThreads); if (threadStat == null) { threadStat = new Stats(threadID, true); getName(threadStat, threadStat.cmdlineFile); mCurrentProcStat.workingThreads.add(threadStat); } collectProcsStats(threadStat.statFile, threadStat); } Collections.sort(mCurrentProcStat.workingThreads, sLoadComparator); } final String[] loadAverages = readProcFile("/proc/loadavg"); if (loadAverages != null) { float load1 = Float.parseFloat(loadAverages[LOAD_AVERAGE_1_MIN]); float load5 = Float.parseFloat(loadAverages[LOAD_AVERAGE_5_MIN]); float load15 = Float.parseFloat(loadAverages[LOAD_AVERAGE_15_MIN]); if (load1 != mLoad1 || load5 != mLoad5 || load15 != mLoad15) { mLoad1 = load1; mLoad5 = load5; mLoad15 = load15; } } if (DEBUG) { android.util.Log.i(TAG, "**</em> TIME TO COLLECT STATS: " + (SystemClock.uptimeMillis() - mCurrentSampleTime)); } } <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/Nullable title="GitHub User: Nullable">@Nullable</a> private Stats findThreadStat(int id, ArrayList<stats> stats) { for (Stats stat : stats) { if (stat.pid == id) { return stat; } } return null; } private void collectProcsStats(String procFile, Stats st) { String[] procStats = readProcFile(procFile); //for (int i = 0; i &lt; procStats.length; i++) { // android.util.Log.e(TAG,"i:" + i + ", sys:" + procStats[i]); //} if (procStats == null) { return; } final String status = procStats[PROCESS_STATS_STATUS]; final long minfaults = Long.parseLong(procStats[PROCESS_STATS_MINOR_FAULTS]); final long majfaults = Long.parseLong(procStats[PROCESS_STATS_MAJOR_FAULTS]); final long utime = Long.parseLong(procStats[PROCESS_STATS_UTIME]) * mJiffyMillis; final long stime = Long.parseLong(procStats[PROCESS_STATS_STIME]) * mJiffyMillis; if (DEBUG) { android.util.Log.v(TAG, "Stats changed " + st.name + " status:" + status + " pid=" + st.pid + " utime=" + utime + "-" + st.base_utime + " stime=" + stime + "-" + st.base_stime + " minfaults=" + minfaults + "-" + st.base_minfaults + " majfaults=" + majfaults + "-" + st.base_majfaults); } final long uptime = SystemClock.uptimeMillis(); st.rel_uptime = uptime - st.base_uptime; st.base_uptime = uptime; st.rel_utime = (int) (utime - st.base_utime); st.rel_stime = (int) (stime - st.base_stime); st.base_utime = utime; st.base_stime = stime; st.rel_minfaults = (int) (minfaults - st.base_minfaults); st.rel_majfaults = (int) (majfaults - st.base_majfaults); st.base_minfaults = minfaults; st.base_majfaults = majfaults; st.status = status; } private final static Comparator<stats> sLoadComparator = new Comparator<stats>() { public final int compare(Stats sta, Stats stb) { int ta = sta.rel_utime + sta.rel_stime; int tb = stb.rel_utime + stb.rel_stime; if (ta != tb) { return ta &gt; tb ? -1 : 1; } return 0; } }; /** * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. <em>/ final public int getLastUserTime() { return mRelUserTime; } /*</em> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. <em>/ final public int getLastSystemTime() { return mRelSystemTime; } /*</em> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. <em>/ final public int getLastIoWaitTime() { return mRelIoWaitTime; } /*</em> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. <em>/ final public int getLastIrqTime() { return mRelIrqTime; } /*</em> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. <em>/ final public int getLastSoftIrqTime() { return mRelSoftIrqTime; } /*</em> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/return title="GitHub User: return">@return</a> time in milliseconds. */ final public int getLastIdleTime() { return mRelIdleTime; } final public boolean hasGoodLastStats() { return mRelStatsAreGood; } final public float getTotalCpuPercent() { int denom = mRelUserTime + mRelSystemTime + mRelIrqTime + mRelIdleTime; if (denom &lt;= 0) { return 0; } return ((float) (mRelUserTime + mRelSystemTime + mRelIrqTime) * 100) / denom; } final private String printCurrentLoad() { StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw, false); pw.print("Load: "); pw.print(mLoad1); pw.print(" / "); pw.print(mLoad5); pw.print(" / "); pw.println(mLoad15); pw.flush(); return sw.toString(); } <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/SuppressLint title="GitHub User: SuppressLint">@SuppressLint</a>("SimpleDateFormat") final public String printCurrentState(long now) { final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH<img alt=🇲🇲 class=twemoji src=https://twemoji.maxcdn.com/v/latest/svg/1f1f2-1f1f2.svg title=:mm:>ss.SSS"); StringWriter sw = new StringWriter(); PrintWriter pw = new PrintWriter(sw, false); pw.println(""); pw.print("CPU usage from "); if (now &gt; mLastSampleTime) { pw.print(now - mLastSampleTime); pw.print("ms to "); pw.print(now - mCurrentSampleTime); pw.print("ms ago"); } else { pw.print(mLastSampleTime - now); pw.print("ms to "); pw.print(mCurrentSampleTime - now); pw.print("ms later"); } pw.print(" ("); pw.print(sdf.format(new Date(mLastSampleWallTime))); pw.print(" to "); pw.print(sdf.format(new Date(mCurrentSampleWallTime))); pw.print(")"); long sampleTime = mCurrentSampleTime - mLastSampleTime; long sampleRealTime = mCurrentSampleRealTime - mLastSampleRealTime; long percAwake = sampleRealTime &gt; 0 ? ((sampleTime * 100) / sampleRealTime) : 0; if (percAwake != 100) { pw.print(" with "); pw.print(percAwake); pw.print("% awake"); } pw.println(":"); final int totalTime = mRelUserTime + mRelSystemTime + mRelIoWaitTime + mRelIrqTime + mRelSoftIrqTime + mRelIdleTime; Stats st = mCurrentProcStat; printProcessCPU(pw, st.pid, st.name, st.status, (int) st.rel_uptime, st.rel_utime, st.rel_stime, 0, 0, 0, 0, st.rel_minfaults, st.rel_majfaults); if (st.workingThreads != null) { pw.println("thread stats:"); int M = st.workingThreads.size(); for (int j = 0; j &lt; M; j++) { Stats tst = st.workingThreads.get(j); printProcessCPU(pw, tst.pid, tst.name, tst.status, (int) st.rel_uptime, tst.rel_utime, tst.rel_stime, 0, 0, 0, 0, tst.rel_minfaults, tst.rel_majfaults); } } printProcessCPU(pw, -1, "TOTAL", "", totalTime, mRelUserTime, mRelSystemTime, mRelIoWaitTime, mRelIrqTime, mRelSoftIrqTime, mRelIdleTime, 0, 0); pw.println(printCurrentLoad()); if (DEBUG) { android.util.Log.i(TAG, "totalTime " + totalTime + " over sample time " + (mCurrentSampleTime - mLastSampleTime) + ", real uptime:" + st.rel_uptime); } pw.flush(); return sw.toString(); } private void printRatio(PrintWriter pw, long numerator, long denominator) { long thousands = (numerator * 1000) / denominator; long hundreds = thousands / 10; pw.print(hundreds); if (hundreds &lt; 10) { long remainder = thousands - (hundreds * 10); if (remainder != 0) { pw.print('.'); pw.print(remainder); } } } private void printProcessCPU(PrintWriter pw, int pid, String label, String status, int totalTime, int user, int system, int iowait, int irq, int softIrq, int idle, int minFaults, int majFaults) { if (totalTime == 0) { totalTime = 1; } printRatio(pw, user + system + iowait + irq + softIrq + idle, totalTime); pw.print("% "); if (pid &gt;= 0) { pw.print(pid); pw.print("/"); } pw.print(label + "(" + status + ")"); pw.print(": "); printRatio(pw, user, totalTime); pw.print("% user + "); printRatio(pw, system, totalTime); pw.print("% kernel"); if (iowait &gt; 0) { pw.print(" + "); printRatio(pw, iowait, totalTime); pw.print("% iowait"); } if (irq &gt; 0) { pw.print(" + "); printRatio(pw, irq, totalTime); pw.print("% irq"); } if (softIrq &gt; 0) { pw.print(" + "); printRatio(pw, softIrq, totalTime); pw.print("% softirq"); } if (idle &gt; 0) { pw.print(" + "); printRatio(pw, idle, totalTime); pw.print("% idle"); } if (minFaults &gt; 0 || majFaults &gt; 0) { pw.print(" / faults:"); if (minFaults &gt; 0) { pw.print(" "); pw.print(minFaults); pw.print(" minor"); } if (majFaults &gt; 0) { pw.print(" "); pw.print(majFaults); pw.print(" major"); } } pw.println(); } private String readFile(String file, char endChar) { // Permit disk reads here, as /proc/meminfo isn't really "on // disk" and should be fast. TODO: make BlockGuard ignore // /proc/ and /sys/ files perhaps? FileInputStream is = null; try { is = new FileInputStream(file); int len = is.read(mBuffer); is.close(); if (len &gt; 0) { int i; for (i = 0; i &lt; len; i++) { if (mBuffer[i] == endChar || mBuffer[i] == 10) { break; } } return new String(mBuffer, 0, i); } } catch (java.io.FileNotFoundException e) { // } catch (IOException e) { // } finally { SystemInfo.closeQuietly(is); } return null; } private void getName(Stats st, String cmdlineFile) { String newName = st.name; if (st.name == null || st.name.equals("app_process") || st.name.equals("<pre-initialized>")) { String cmdName = readFile(cmdlineFile, '\0'); if (cmdName != null &amp;&amp; cmdName.length() &gt; 1) { newName = cmdName; int i = newName.lastIndexOf("/"); if (i &gt; 0 &amp;&amp; i &lt; newName.length() - 1) { newName = newName.substring(i + 1); } } if (newName == null) { newName = st.baseName; } } if (st.name == null || !newName.equals(st.name)) { st.name = newName; } } <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/Nullable title="GitHub User: Nullable">@Nullable</a> protected String[] readProcFile(String file) { RandomAccessFile procFile = null; String procFileContents; try { procFile = new RandomAccessFile(file, "r"); procFileContents = procFile.readLine(); int rightIndex = procFileContents.indexOf(")"); if (rightIndex &gt; 0) { procFileContents = procFileContents.substring(rightIndex + 2); } return procFileContents.split(" "); } catch (IOException ioe) { ioe.printStackTrace(); return null; } finally { SystemInfo.closeQuietly(procFile); } } } ```</p> <p>```java tab="Sysconf" /** * Use {<a class="magiclink magiclink-github magiclink-mention" href=https://github.com/link title="GitHub User: link">@link</a> libcore.io.Posix} to obtain values from SysConf without having to include call through * to JNI directly, and let the Android Framework's classes do that for us. * * <p>The singleton instance of the Posix class was made directly accessible from Lollipop (SDK 21) * onwards; from ICS to Lollipop we can access an instance at {<a class="magiclink magiclink-github magiclink-mention" href=https://github.com/code title="GitHub User: code">@code</a> libcore.io.Libcore.os} using * reflection. * * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/see title="GitHub User: see">@see</a> <a href=https://fburl.com/8o3hnt3k>The Posix Class in AOSP</a> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/see title="GitHub User: see">@see</a> <a href=https://fburl.com/wf5sbpjs>The CPP implementation of Posix</a> * <a class="magiclink magiclink-github magiclink-mention" href=https://github.com/see title="GitHub User: see">@see</a> <a href=https://fburl.com/9kyylxzu>Libcore singleton with a Posix instance</a> <em>/ /*package</em>/ class Sysconf {</p> <div class=codehilite><pre><span></span><code>private static final String TAG = &quot;Sysconf&quot;;
-protected static final long DEFAULT_CLOCK_TICKS_PER_SECOND = 100;
+                <span class=k>try</span> <span class=p>{</span>
+                    <span class=n>Thread</span><span class=p>.</span><span class=na>sleep</span><span class=p>(</span><span class=mi>100000</span><span class=p>);</span>
+                <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>InterruptedException</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+                    <span class=n>e</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+                <span class=p>}</span>
+            <span class=p>}</span>
+        <span class=p>});</span>
+        <span class=n>thread</span><span class=p>.</span><span class=na>setName</span><span class=p>(</span><span class=s>&quot;SingleThread&quot;</span><span class=p>);</span>
+        <span class=n>thread</span><span class=p>.</span><span class=na>start</span><span class=p>();</span>
+    <span class=p>}</span>
 
 
-@SuppressLint(&quot;ObsoleteSdkInt&quot;)
-public static long getScClkTck(long fallback) {
-    long result = fallback;
-    if (Build.VERSION.SDK_INT &gt;= 21) {
-        result = Os.sysconf(OsConstants._SC_CLK_TCK);
-    } else if (Build.VERSION.SDK_INT &gt;= 14) {
-        result = fromLibcore(&quot;_SC_CLK_TCK&quot;, fallback);
-    }
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>testGc</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=mi>10000</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+            <span class=kt>int</span><span class=o>[]</span> <span class=n>test</span> <span class=o>=</span> <span class=k>new</span> <span class=kt>int</span><span class=o>[</span><span class=mi>100000</span><span class=o>]</span><span class=p>;</span>
+            <span class=n>System</span><span class=p>.</span><span class=na>gc</span><span class=p>();</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
 
-    return result &gt; 0 ? result : fallback;
-}
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>execUpTime</span><span class=p>()</span> <span class=p>{</span>
+       <span class=n>ShellExecutor</span><span class=p>.</span><span class=na>execute</span><span class=p>(</span><span class=s>&quot;uptime&quot;</span><span class=p>);</span>
+    <span class=p>}</span>
 
-public static long getScClkTck() {
-   return getScClkTck(DEFAULT_CLOCK_TICKS_PER_SECOND);
-}
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>writeSth</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>File</span> <span class=n>f</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>getFilesDir</span><span class=p>(),</span> <span class=s>&quot;aee.txt&quot;</span><span class=p>);</span>
 
-@SuppressLint(&quot;ObsoleteSdkInt&quot;)
-public static long getScNProcessorsConf(long fallback) {
-    if (Build.VERSION.SDK_INT &gt;= 21) {
-        return Os.sysconf(OsConstants._SC_NPROCESSORS_CONF);
-    } else if (Build.VERSION.SDK_INT &gt;= 14) {
-        return fromLibcore(&quot;_SC_NPROCESSORS_CONF&quot;, fallback);
-    }
+            <span class=k>if</span> <span class=p>(</span><span class=n>f</span><span class=p>.</span><span class=na>exists</span><span class=p>())</span> <span class=p>{</span>
+                <span class=n>f</span><span class=p>.</span><span class=na>delete</span><span class=p>();</span>
+            <span class=p>}</span>
+            <span class=n>FileOutputStream</span> <span class=n>fos</span> <span class=o>=</span> <span class=k>new</span> <span class=n>FileOutputStream</span><span class=p>(</span><span class=n>f</span><span class=p>);</span>
 
-    return fallback;
-}
+            <span class=kt>byte</span><span class=o>[]</span> <span class=n>data</span> <span class=o>=</span> <span class=k>new</span> <span class=kt>byte</span><span class=o>[</span><span class=mi>1024</span> <span class=o>*</span> <span class=mi>4</span> <span class=o>*</span> <span class=mi>3000</span><span class=o>]</span><span class=p>;</span>
 
-private static long fromLibcore(String field, long fallback) {
-    try {
-        Class osConstantsClass = Class.forName(&quot;libcore.io.OsConstants&quot;);
-        int scClkTck = osConstantsClass.getField(field).getInt(null);
-        Class libcoreClass = Class.forName(&quot;libcore.io.Libcore&quot;);
-        Class osClass = Class.forName(&quot;libcore.io.Os&quot;);
-        Object osInstance = libcoreClass.getField(&quot;os&quot;).get(null);
-        return (long) osClass.getMethod(&quot;sysconf&quot;, int.class).invoke(osInstance, scClkTck);
-    } catch (NoSuchMethodException ex) {
-        logReflectionException(ex);
-    } catch (NoSuchFieldException ex) {
-        logReflectionException(ex);
-    } catch (IllegalAccessException ex) {
-        logReflectionException(ex);
-    } catch (InvocationTargetException ex) {
-        logReflectionException(ex);
-    } catch (ClassNotFoundException ex) {
-        logReflectionException(ex);
-    }
+            <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=mi>30</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>Arrays</span><span class=p>.</span><span class=na>fill</span><span class=p>(</span><span class=n>data</span><span class=p>,</span> <span class=p>(</span><span class=kt>byte</span><span class=p>)</span> <span class=n>i</span><span class=p>);</span>
+                <span class=n>fos</span><span class=p>.</span><span class=na>write</span><span class=p>(</span><span class=n>data</span><span class=p>);</span>
+                <span class=n>fos</span><span class=p>.</span><span class=na>flush</span><span class=p>();</span>
+            <span class=p>}</span>
+            <span class=n>fos</span><span class=p>.</span><span class=na>close</span><span class=p>();</span>
 
-    return fallback;
-}
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>FileNotFoundException</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>e</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>IOException</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>e</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_2 name=__tabbed_1 type=radio><label for=__tabbed_1_2>ProcessCpuTracker</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span>  1
+  2
+  3
+  4
+  5
+  6
+  7
+  8
+  9
+ 10
+ 11
+ 12
+ 13
+ 14
+ 15
+ 16
+ 17
+ 18
+ 19
+ 20
+ 21
+ 22
+ 23
+ 24
+ 25
+ 26
+ 27
+ 28
+ 29
+ 30
+ 31
+ 32
+ 33
+ 34
+ 35
+ 36
+ 37
+ 38
+ 39
+ 40
+ 41
+ 42
+ 43
+ 44
+ 45
+ 46
+ 47
+ 48
+ 49
+ 50
+ 51
+ 52
+ 53
+ 54
+ 55
+ 56
+ 57
+ 58
+ 59
+ 60
+ 61
+ 62
+ 63
+ 64
+ 65
+ 66
+ 67
+ 68
+ 69
+ 70
+ 71
+ 72
+ 73
+ 74
+ 75
+ 76
+ 77
+ 78
+ 79
+ 80
+ 81
+ 82
+ 83
+ 84
+ 85
+ 86
+ 87
+ 88
+ 89
+ 90
+ 91
+ 92
+ 93
+ 94
+ 95
+ 96
+ 97
+ 98
+ 99
+100
+101
+102
+103
+104
+105
+106
+107
+108
+109
+110
+111
+112
+113
+114
+115
+116
+117
+118
+119
+120
+121
+122
+123
+124
+125
+126
+127
+128
+129
+130
+131
+132
+133
+134
+135
+136
+137
+138
+139
+140
+141
+142
+143
+144
+145
+146
+147
+148
+149
+150
+151
+152
+153
+154
+155
+156
+157
+158
+159
+160
+161
+162
+163
+164
+165
+166
+167
+168
+169
+170
+171
+172
+173
+174
+175
+176
+177
+178
+179
+180
+181
+182
+183
+184
+185
+186
+187
+188
+189
+190
+191
+192
+193
+194
+195
+196
+197
+198
+199
+200
+201
+202
+203
+204
+205
+206
+207
+208
+209
+210
+211
+212
+213
+214
+215
+216
+217
+218
+219
+220
+221
+222
+223
+224
+225
+226
+227
+228
+229
+230
+231
+232
+233
+234
+235
+236
+237
+238
+239
+240
+241
+242
+243
+244
+245
+246
+247
+248
+249
+250
+251
+252
+253
+254
+255
+256
+257
+258
+259
+260
+261
+262
+263
+264
+265
+266
+267
+268
+269
+270
+271
+272
+273
+274
+275
+276
+277
+278
+279
+280
+281
+282
+283
+284
+285
+286
+287
+288
+289
+290
+291
+292
+293
+294
+295
+296
+297
+298
+299
+300
+301
+302
+303
+304
+305
+306
+307
+308
+309
+310
+311
+312
+313
+314
+315
+316
+317
+318
+319
+320
+321
+322
+323
+324
+325
+326
+327
+328
+329
+330
+331
+332
+333
+334
+335
+336
+337
+338
+339
+340
+341
+342
+343
+344
+345
+346
+347
+348
+349
+350
+351
+352
+353
+354
+355
+356
+357
+358
+359
+360
+361
+362
+363
+364
+365
+366
+367
+368
+369
+370
+371
+372
+373
+374
+375
+376
+377
+378
+379
+380
+381
+382
+383
+384
+385
+386
+387
+388
+389
+390
+391
+392
+393
+394
+395
+396
+397
+398
+399
+400
+401
+402
+403
+404
+405
+406
+407
+408
+409
+410
+411
+412
+413
+414
+415
+416
+417
+418
+419
+420
+421
+422
+423
+424
+425
+426
+427
+428
+429
+430
+431
+432
+433
+434
+435
+436
+437
+438
+439
+440
+441
+442
+443
+444
+445
+446
+447
+448
+449
+450
+451
+452
+453
+454
+455
+456
+457
+458
+459
+460
+461
+462
+463
+464
+465
+466
+467
+468
+469
+470
+471
+472
+473
+474
+475
+476
+477
+478
+479
+480
+481
+482
+483
+484
+485
+486
+487
+488
+489
+490
+491
+492
+493
+494
+495
+496
+497
+498
+499
+500
+501
+502
+503
+504
+505
+506
+507
+508
+509
+510
+511
+512
+513
+514
+515
+516
+517
+518
+519
+520
+521
+522
+523
+524
+525
+526
+527
+528
+529
+530
+531
+532
+533
+534
+535
+536
+537
+538
+539
+540
+541
+542
+543
+544
+545
+546
+547
+548
+549
+550
+551
+552
+553
+554</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=cm>/**</span>
+<span class=cm> * 有bug, 之前没有现在有，而且更新的时候也有问题</span>
+<span class=cm> * 之前有，现在没有，当0处理</span>
+<span class=cm> */</span>
+<span class=kd>public</span> <span class=kd>class</span> <span class=nc>ProcessCpuTracker</span> <span class=p>{</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>TAG</span> <span class=o>=</span> <span class=s>&quot;ProcessCpuTracker&quot;</span><span class=p>;</span>
 
-private static void logReflectionException(Exception ex) {
-    android.util.Log.e(TAG, &quot;Unable to read _SC_CLK_TCK by reflection&quot;, ex);
-}
-</code></pre></div> <p>} <code></code>java tab="ShellExecutor" class ShellExecutor { public static void execute(String... cmd) { try { Process process = Runtime.getRuntime().exec("cat /proc/loadavg"); process.waitFor(); BufferedReader in = new BufferedReader(new InputStreamReader(process.getInputStream())); StringBuilder stringBuilder = new StringBuilder("result="); String line; while ((line = in.readLine()) != null) { stringBuilder.append(line).append("\n"); } android.util.Log.e("ProcessCpuTracker", stringBuilder.toString()); } catch (Exception e) { e.printStackTrace(); } } } ```</p> <hr> <div class=md-source-date> <small> 最后更新: <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">2021年2月1日</span> </small> </div> <h2 id=__comments>评论</h2> <div id=disqus_thread></div> <script>var disqus_config=function(){this.page.url="https://blog.yorek.xyz/android/paid/master/stuck_1/",this.page.identifier="/android/paid/master/stuck_1/"};window.addEventListener("load",function(){var e=document,i=e.createElement("script");i.src="//yorekliu.disqus.com/embed.js",i.setAttribute("data-timestamp",+new Date),(e.head||e.body).appendChild(i)})</script> </article> </div> </div> </main> <footer class=md-footer> <div class=md-footer-nav> <nav class="md-footer-nav__inner md-grid" aria-label=Footer> <a href=../memory_2/ class="md-footer-nav__link md-footer-nav__link--prev" rel=prev> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg> </div> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 上一页 </span> 04 | 内存优化（下）：内存优化这件事，应该从哪里着手？ </div> </div> </a> <a href=../stuck_2/ class="md-footer-nav__link md-footer-nav__link--next" rel=next> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 下一页 </span> 06 | 卡顿优化（下）：如何监控应用卡顿？ </div> </div> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg> </div> </a> </nav> </div> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-footer-copyright> <div class=md-footer-copyright__highlight> &copy; 2021 Yorek </div> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> <div class=md-footer-social> <a href=https://github.com/YorekLiu target=_blank rel=noopener title=github.com class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg> </a> <a href=lyytogether@gmail.com target=_blank rel=noopener title class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg> </a> </div> </div> </div> </footer> </div> <script src=../../../../assets/javascripts/vendor.93c04032.min.js></script> <script src=../../../../assets/javascripts/bundle.83e5331e.min.js></script><script id=__lang type=application/json>{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stemmer", "search.config.separator": "[\\uff0c\\u3002]+", "search.placeholder": "\u641c\u7d22", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing"}</script> <script>
+    <span class=c1>// /proc/self/stat</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>PROCESS_STATS_STATUS</span> <span class=o>=</span> <span class=mi>2</span> <span class=o>-</span> <span class=mi>2</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>PROCESS_STATS_MINOR_FAULTS</span> <span class=o>=</span> <span class=mi>9</span> <span class=o>-</span> <span class=mi>2</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>PROCESS_STATS_MAJOR_FAULTS</span> <span class=o>=</span> <span class=mi>11</span> <span class=o>-</span> <span class=mi>2</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>PROCESS_STATS_UTIME</span> <span class=o>=</span> <span class=mi>13</span> <span class=o>-</span> <span class=mi>2</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>PROCESS_STATS_STIME</span> <span class=o>=</span> <span class=mi>14</span> <span class=o>-</span> <span class=mi>2</span><span class=p>;</span>
+
+    <span class=c1>// /proc/</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>NR_VOLUNTARY_SWITCHES</span> <span class=o>=</span> <span class=s>&quot;nr_voluntary_switches&quot;</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>NR_INVOLUNTARY_SWITCHES</span> <span class=o>=</span> <span class=s>&quot;nr_involuntary_switches&quot;</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>SE_IOWAIT_COUNT</span> <span class=o>=</span> <span class=s>&quot;se.statistics.iowait_count&quot;</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>SE_IOWAIT_SUM</span> <span class=o>=</span> <span class=s>&quot;se.statistics.iowait_sum&quot;</span><span class=p>;</span>
+
+    <span class=c1>// /proc/stat</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_USER_TIME</span> <span class=o>=</span> <span class=mi>2</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_NICE_TIME</span> <span class=o>=</span> <span class=mi>3</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_SYS_TIME</span> <span class=o>=</span> <span class=mi>4</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_IDLE_TIME</span> <span class=o>=</span> <span class=mi>5</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_IOWAIT_TIME</span> <span class=o>=</span> <span class=mi>6</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_IRQ_TIME</span> <span class=o>=</span> <span class=mi>7</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>SYSTEM_STATS_SOFT_IRQ_TIME</span> <span class=o>=</span> <span class=mi>8</span><span class=p>;</span>
+
+    <span class=c1>// /proc/loadavg</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>LOAD_AVERAGE_1_MIN</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>LOAD_AVERAGE_5_MIN</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>LOAD_AVERAGE_15_MIN</span> <span class=o>=</span> <span class=mi>2</span><span class=p>;</span>
+
+    <span class=c1>// How long a CPU jiffy is in milliseconds.</span>
+    <span class=kd>private</span> <span class=kd>final</span> <span class=kt>long</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>float</span> <span class=n>mLoad1</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>float</span> <span class=n>mLoad5</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>float</span> <span class=n>mLoad15</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span>
+    <span class=c1>// All times are in milliseconds. They are converted from jiffies to milliseconds</span>
+    <span class=c1>// when extracted from the kernel.</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mCurrentSampleTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mLastSampleTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mCurrentSampleRealTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mLastSampleRealTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mCurrentSampleWallTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mLastSampleWallTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseUserTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseSystemTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseIoWaitTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseIrqTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseSoftIrqTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>long</span> <span class=n>mBaseIdleTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelUserTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelSystemTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelIoWaitTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelIrqTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelSoftIrqTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mRelIdleTime</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>boolean</span> <span class=n>mRelStatsAreGood</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>byte</span><span class=o>[]</span> <span class=n>mBuffer</span> <span class=o>=</span> <span class=k>new</span> <span class=kt>byte</span><span class=o>[</span><span class=mi>4096</span><span class=o>]</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>boolean</span> <span class=n>DEBUG</span> <span class=o>=</span> <span class=kc>true</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=n>Stats</span> <span class=n>mCurrentProcStat</span><span class=p>;</span>
+    <span class=kd>private</span> <span class=kt>int</span> <span class=n>mCurrentProcID</span><span class=p>;</span>
+
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kd>class</span> <span class=nc>Stats</span> <span class=p>{</span>
+        <span class=kd>public</span> <span class=kd>final</span> <span class=kt>int</span> <span class=n>pid</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=n>String</span> <span class=n>statFile</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=n>String</span> <span class=n>cmdlineFile</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=n>String</span> <span class=n>threadsDir</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=n>ArrayList</span><span class=o>&lt;</span><span class=n>Stats</span><span class=o>&gt;</span> <span class=n>workingThreads</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=n>String</span> <span class=n>baseName</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=n>String</span> <span class=n>name</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>base_uptime</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>rel_uptime</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>base_utime</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>base_stime</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>int</span> <span class=n>rel_utime</span><span class=p>;</span>
+        <span class=cm>/**</span>
+<span class=cm>         * Time in milliseconds.</span>
+<span class=cm>         */</span>
+        <span class=kd>public</span> <span class=kt>int</span> <span class=n>rel_stime</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>base_minfaults</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=kt>long</span> <span class=n>base_majfaults</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=kt>int</span> <span class=n>rel_minfaults</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=kt>int</span> <span class=n>rel_majfaults</span><span class=p>;</span>
+        <span class=kd>public</span> <span class=n>String</span> <span class=n>status</span><span class=p>;</span>
+
+        <span class=n>Stats</span><span class=p>(</span><span class=kt>int</span> <span class=n>_pid</span><span class=p>,</span> <span class=kt>boolean</span> <span class=n>isThread</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pid</span> <span class=o>=</span> <span class=n>_pid</span><span class=p>;</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>isThread</span><span class=p>)</span> <span class=p>{</span>
+                <span class=kd>final</span> <span class=n>File</span> <span class=n>procDir</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=s>&quot;/proc/self/task&quot;</span><span class=p>,</span> <span class=n>Integer</span><span class=p>.</span><span class=na>toString</span><span class=p>(</span><span class=n>pid</span><span class=p>));</span>
+                <span class=n>workingThreads</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+                <span class=n>statFile</span> <span class=o>=</span> <span class=n>procDir</span> <span class=o>+</span> <span class=s>&quot;/stat&quot;</span><span class=p>;</span>
+                <span class=n>cmdlineFile</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>procDir</span><span class=p>,</span> <span class=s>&quot;comm&quot;</span><span class=p>).</span><span class=na>toString</span><span class=p>();</span>
+                <span class=n>threadsDir</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+            <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+                <span class=kd>final</span> <span class=n>File</span> <span class=n>procDir</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=s>&quot;/proc&quot;</span><span class=p>,</span> <span class=n>Integer</span><span class=p>.</span><span class=na>toString</span><span class=p>(</span><span class=n>pid</span><span class=p>));</span>
+                <span class=n>statFile</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>procDir</span><span class=p>,</span> <span class=s>&quot;stat&quot;</span><span class=p>).</span><span class=na>toString</span><span class=p>();</span>
+                <span class=n>cmdlineFile</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>procDir</span><span class=p>,</span> <span class=s>&quot;cmdline&quot;</span><span class=p>).</span><span class=na>toString</span><span class=p>();</span>
+                <span class=n>threadsDir</span> <span class=o>=</span> <span class=p>(</span><span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>procDir</span><span class=p>,</span> <span class=s>&quot;task&quot;</span><span class=p>)).</span><span class=na>toString</span><span class=p>();</span>
+                <span class=n>workingThreads</span> <span class=o>=</span> <span class=k>new</span> <span class=n>ArrayList</span><span class=o>&lt;</span><span class=n>Stats</span><span class=o>&gt;</span><span class=p>();</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+
+
+    <span class=kd>public</span> <span class=nf>ProcessCpuTracker</span><span class=p>(</span><span class=kt>int</span> <span class=n>id</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kt>long</span> <span class=n>jiffyHz</span> <span class=o>=</span> <span class=n>Sysconf</span><span class=p>.</span><span class=na>getScClkTck</span><span class=p>();</span>
+        <span class=n>mJiffyMillis</span> <span class=o>=</span> <span class=mi>1000</span> <span class=o>/</span> <span class=n>jiffyHz</span><span class=p>;</span>
+        <span class=n>mCurrentProcID</span> <span class=o>=</span> <span class=n>id</span><span class=p>;</span>
+        <span class=n>mCurrentProcStat</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Stats</span><span class=p>(</span><span class=n>mCurrentProcID</span><span class=p>,</span> <span class=kc>false</span><span class=p>);</span>
+
+    <span class=p>}</span>
+
+    <span class=kd>public</span> <span class=kt>void</span> <span class=nf>update</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>DEBUG</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>v</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;Update: &quot;</span> <span class=o>+</span> <span class=k>this</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>nowUptime</span> <span class=o>=</span> <span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>();</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>nowRealtime</span> <span class=o>=</span> <span class=n>SystemClock</span><span class=p>.</span><span class=na>elapsedRealtime</span><span class=p>();</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>nowWallTime</span> <span class=o>=</span> <span class=n>System</span><span class=p>.</span><span class=na>currentTimeMillis</span><span class=p>();</span>
+        <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>sysCpu</span> <span class=o>=</span> <span class=n>readProcFile</span><span class=p>(</span><span class=s>&quot;/proc/stat&quot;</span><span class=p>);</span>
+
+        <span class=c1>//for (int i = 0; i &lt; sysCpu.length; i++) {</span>
+        <span class=c1>//    android.util.Log.e(TAG,&quot;i:&quot; + i + &quot;, sys:&quot; + sysCpu[i]);</span>
+        <span class=c1>//}</span>
+
+        <span class=k>if</span> <span class=p>(</span><span class=n>sysCpu</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=c1>// Total user time is user + nice time.</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>usertime</span> <span class=o>=</span> <span class=p>(</span><span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_USER_TIME</span><span class=o>]</span><span class=p>)</span>
+                    <span class=o>+</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_NICE_TIME</span><span class=o>]</span><span class=p>))</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=c1>// Total system time is simply system time.</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>systemtime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_SYS_TIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=c1>// Total idle time is simply idle time.</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>idletime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_IDLE_TIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=c1>// Total irq time is iowait + irq + softirq time.</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>iowaittime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_IOWAIT_TIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>irqtime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_IRQ_TIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=kd>final</span> <span class=kt>long</span> <span class=n>softirqtime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>sysCpu</span><span class=o>[</span><span class=n>SYSTEM_STATS_SOFT_IRQ_TIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+            <span class=c1>// This code is trying to avoid issues with idle time going backwards,</span>
+            <span class=c1>// but currently it gets into situations where it triggers most of the time. :(</span>
+
+            <span class=n>mRelUserTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>usertime</span> <span class=o>-</span> <span class=n>mBaseUserTime</span><span class=p>);</span>
+            <span class=n>mRelSystemTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>systemtime</span> <span class=o>-</span> <span class=n>mBaseSystemTime</span><span class=p>);</span>
+            <span class=n>mRelIoWaitTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>iowaittime</span> <span class=o>-</span> <span class=n>mBaseIoWaitTime</span><span class=p>);</span>
+            <span class=n>mRelIrqTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>irqtime</span> <span class=o>-</span> <span class=n>mBaseIrqTime</span><span class=p>);</span>
+            <span class=n>mRelSoftIrqTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>softirqtime</span> <span class=o>-</span> <span class=n>mBaseSoftIrqTime</span><span class=p>);</span>
+            <span class=n>mRelIdleTime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>idletime</span> <span class=o>-</span> <span class=n>mBaseIdleTime</span><span class=p>);</span>
+            <span class=n>mRelStatsAreGood</span> <span class=o>=</span> <span class=kc>true</span><span class=p>;</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>DEBUG</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>i</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;Total U:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>usertime</span><span class=p>)</span>
+                        <span class=o>+</span> <span class=s>&quot; S:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>systemtime</span><span class=p>)</span> <span class=o>+</span> <span class=s>&quot; I:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>idletime</span><span class=p>)</span>
+                        <span class=o>+</span> <span class=s>&quot; W:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>iowaittime</span><span class=p>)</span> <span class=o>+</span> <span class=s>&quot; Q:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>irqtime</span><span class=p>)</span>
+                        <span class=o>+</span> <span class=s>&quot; O:&quot;</span> <span class=o>+</span> <span class=p>(</span><span class=n>softirqtime</span><span class=p>));</span>
+                <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>i</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;Rel U:&quot;</span> <span class=o>+</span> <span class=n>mRelUserTime</span> <span class=o>+</span> <span class=s>&quot; S:&quot;</span> <span class=o>+</span> <span class=n>mRelSystemTime</span>
+                        <span class=o>+</span> <span class=s>&quot; I:&quot;</span> <span class=o>+</span> <span class=n>mRelIdleTime</span> <span class=o>+</span> <span class=s>&quot; Q:&quot;</span> <span class=o>+</span> <span class=n>mRelIrqTime</span><span class=p>);</span>
+            <span class=p>}</span>
+            <span class=n>mBaseUserTime</span> <span class=o>=</span> <span class=n>usertime</span><span class=p>;</span>
+            <span class=n>mBaseSystemTime</span> <span class=o>=</span> <span class=n>systemtime</span><span class=p>;</span>
+            <span class=n>mBaseIoWaitTime</span> <span class=o>=</span> <span class=n>iowaittime</span><span class=p>;</span>
+            <span class=n>mBaseIrqTime</span> <span class=o>=</span> <span class=n>irqtime</span><span class=p>;</span>
+            <span class=n>mBaseSoftIrqTime</span> <span class=o>=</span> <span class=n>softirqtime</span><span class=p>;</span>
+            <span class=n>mBaseIdleTime</span> <span class=o>=</span> <span class=n>idletime</span><span class=p>;</span>
+
+        <span class=p>}</span>
+        <span class=n>mLastSampleTime</span> <span class=o>=</span> <span class=n>mCurrentSampleTime</span><span class=p>;</span>
+        <span class=n>mCurrentSampleTime</span> <span class=o>=</span> <span class=n>nowUptime</span><span class=p>;</span>
+        <span class=n>mLastSampleRealTime</span> <span class=o>=</span> <span class=n>mCurrentSampleRealTime</span><span class=p>;</span>
+        <span class=n>mCurrentSampleRealTime</span> <span class=o>=</span> <span class=n>nowRealtime</span><span class=p>;</span>
+        <span class=n>mLastSampleWallTime</span> <span class=o>=</span> <span class=n>mCurrentSampleWallTime</span><span class=p>;</span>
+        <span class=n>mCurrentSampleWallTime</span> <span class=o>=</span> <span class=n>nowWallTime</span><span class=p>;</span>
+
+        <span class=n>getName</span><span class=p>(</span><span class=n>mCurrentProcStat</span><span class=p>,</span> <span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>cmdlineFile</span><span class=p>);</span>
+        <span class=n>collectProcsStats</span><span class=p>(</span><span class=s>&quot;/proc/self/stat&quot;</span><span class=p>,</span> <span class=n>mCurrentProcStat</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>workingThreads</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>File</span><span class=o>[]</span> <span class=n>threadsProcFiles</span> <span class=o>=</span> <span class=k>new</span> <span class=n>File</span><span class=p>(</span><span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>threadsDir</span><span class=p>).</span><span class=na>listFiles</span><span class=p>();</span>
+            <span class=k>for</span> <span class=p>(</span><span class=n>File</span> <span class=n>thread</span> <span class=p>:</span> <span class=n>threadsProcFiles</span><span class=p>)</span> <span class=p>{</span>
+                <span class=kt>int</span> <span class=n>threadID</span> <span class=o>=</span> <span class=n>Integer</span><span class=p>.</span><span class=na>parseInt</span><span class=p>(</span><span class=n>thread</span><span class=p>.</span><span class=na>getName</span><span class=p>());</span>
+                <span class=n>Log</span><span class=p>.</span><span class=na>d</span><span class=p>(</span><span class=s>&quot;xxxxx&quot;</span><span class=p>,</span> <span class=s>&quot;threadId:&quot;</span> <span class=o>+</span> <span class=n>threadID</span><span class=p>);</span>
+                <span class=n>Stats</span> <span class=n>threadStat</span> <span class=o>=</span> <span class=n>findThreadStat</span><span class=p>(</span><span class=n>threadID</span><span class=p>,</span> <span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>workingThreads</span><span class=p>);</span>
+                <span class=k>if</span> <span class=p>(</span><span class=n>threadStat</span> <span class=o>==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+                    <span class=n>threadStat</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Stats</span><span class=p>(</span><span class=n>threadID</span><span class=p>,</span> <span class=kc>true</span><span class=p>);</span>
+
+                    <span class=n>getName</span><span class=p>(</span><span class=n>threadStat</span><span class=p>,</span> <span class=n>threadStat</span><span class=p>.</span><span class=na>cmdlineFile</span><span class=p>);</span>
+                    <span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>workingThreads</span><span class=p>.</span><span class=na>add</span><span class=p>(</span><span class=n>threadStat</span><span class=p>);</span>
+                <span class=p>}</span>
+                <span class=n>collectProcsStats</span><span class=p>(</span><span class=n>threadStat</span><span class=p>.</span><span class=na>statFile</span><span class=p>,</span> <span class=n>threadStat</span><span class=p>);</span>
+            <span class=p>}</span>
+            <span class=n>Collections</span><span class=p>.</span><span class=na>sort</span><span class=p>(</span><span class=n>mCurrentProcStat</span><span class=p>.</span><span class=na>workingThreads</span><span class=p>,</span> <span class=n>sLoadComparator</span><span class=p>);</span>
+        <span class=p>}</span>
+
+
+        <span class=kd>final</span> <span class=n>String</span><span class=o>[]</span> <span class=n>loadAverages</span> <span class=o>=</span> <span class=n>readProcFile</span><span class=p>(</span><span class=s>&quot;/proc/loadavg&quot;</span><span class=p>);</span>
+
+        <span class=k>if</span> <span class=p>(</span><span class=n>loadAverages</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=kt>float</span> <span class=n>load1</span> <span class=o>=</span> <span class=n>Float</span><span class=p>.</span><span class=na>parseFloat</span><span class=p>(</span><span class=n>loadAverages</span><span class=o>[</span><span class=n>LOAD_AVERAGE_1_MIN</span><span class=o>]</span><span class=p>);</span>
+            <span class=kt>float</span> <span class=n>load5</span> <span class=o>=</span> <span class=n>Float</span><span class=p>.</span><span class=na>parseFloat</span><span class=p>(</span><span class=n>loadAverages</span><span class=o>[</span><span class=n>LOAD_AVERAGE_5_MIN</span><span class=o>]</span><span class=p>);</span>
+            <span class=kt>float</span> <span class=n>load15</span> <span class=o>=</span> <span class=n>Float</span><span class=p>.</span><span class=na>parseFloat</span><span class=p>(</span><span class=n>loadAverages</span><span class=o>[</span><span class=n>LOAD_AVERAGE_15_MIN</span><span class=o>]</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>load1</span> <span class=o>!=</span> <span class=n>mLoad1</span> <span class=o>||</span> <span class=n>load5</span> <span class=o>!=</span> <span class=n>mLoad5</span> <span class=o>||</span> <span class=n>load15</span> <span class=o>!=</span> <span class=n>mLoad15</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>mLoad1</span> <span class=o>=</span> <span class=n>load1</span><span class=p>;</span>
+                <span class=n>mLoad5</span> <span class=o>=</span> <span class=n>load5</span><span class=p>;</span>
+                <span class=n>mLoad15</span> <span class=o>=</span> <span class=n>load15</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>DEBUG</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>i</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;*** TIME TO COLLECT STATS: &quot;</span>
+                    <span class=o>+</span> <span class=p>(</span><span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>()</span> <span class=o>-</span> <span class=n>mCurrentSampleTime</span><span class=p>));</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+
+    <span class=nd>@Nullable</span>
+    <span class=kd>private</span> <span class=n>Stats</span> <span class=nf>findThreadStat</span><span class=p>(</span><span class=kt>int</span> <span class=n>id</span><span class=p>,</span> <span class=n>ArrayList</span><span class=o>&lt;</span><span class=n>Stats</span><span class=o>&gt;</span> <span class=n>stats</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>for</span> <span class=p>(</span><span class=n>Stats</span> <span class=n>stat</span> <span class=p>:</span> <span class=n>stats</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>stat</span><span class=p>.</span><span class=na>pid</span> <span class=o>==</span> <span class=n>id</span><span class=p>)</span> <span class=p>{</span>
+                <span class=k>return</span> <span class=n>stat</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+        <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>collectProcsStats</span><span class=p>(</span><span class=n>String</span> <span class=n>procFile</span><span class=p>,</span> <span class=n>Stats</span> <span class=n>st</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>String</span><span class=o>[]</span> <span class=n>procStats</span> <span class=o>=</span> <span class=n>readProcFile</span><span class=p>(</span><span class=n>procFile</span><span class=p>);</span>
+        <span class=c1>//for (int i = 0; i &lt; procStats.length; i++) {</span>
+        <span class=c1>//    android.util.Log.e(TAG,&quot;i:&quot; + i + &quot;, sys:&quot; + procStats[i]);</span>
+        <span class=c1>//}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>procStats</span> <span class=o>==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>return</span><span class=p>;</span>
+        <span class=p>}</span>
+        <span class=kd>final</span> <span class=n>String</span> <span class=n>status</span> <span class=o>=</span> <span class=n>procStats</span><span class=o>[</span><span class=n>PROCESS_STATS_STATUS</span><span class=o>]</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>minfaults</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>procStats</span><span class=o>[</span><span class=n>PROCESS_STATS_MINOR_FAULTS</span><span class=o>]</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>majfaults</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>procStats</span><span class=o>[</span><span class=n>PROCESS_STATS_MAJOR_FAULTS</span><span class=o>]</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>utime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>procStats</span><span class=o>[</span><span class=n>PROCESS_STATS_UTIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>stime</span> <span class=o>=</span> <span class=n>Long</span><span class=p>.</span><span class=na>parseLong</span><span class=p>(</span><span class=n>procStats</span><span class=o>[</span><span class=n>PROCESS_STATS_STIME</span><span class=o>]</span><span class=p>)</span> <span class=o>*</span> <span class=n>mJiffyMillis</span><span class=p>;</span>
+
+        <span class=k>if</span> <span class=p>(</span><span class=n>DEBUG</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>v</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;Stats changed &quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>name</span> <span class=o>+</span> <span class=s>&quot; status:&quot;</span> <span class=o>+</span> <span class=n>status</span> <span class=o>+</span> <span class=s>&quot; pid=&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>pid</span>
+                    <span class=o>+</span> <span class=s>&quot; utime=&quot;</span> <span class=o>+</span> <span class=n>utime</span> <span class=o>+</span> <span class=s>&quot;-&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>base_utime</span>
+                    <span class=o>+</span> <span class=s>&quot; stime=&quot;</span> <span class=o>+</span> <span class=n>stime</span> <span class=o>+</span> <span class=s>&quot;-&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>base_stime</span>
+                    <span class=o>+</span> <span class=s>&quot; minfaults=&quot;</span> <span class=o>+</span> <span class=n>minfaults</span> <span class=o>+</span> <span class=s>&quot;-&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>base_minfaults</span>
+                    <span class=o>+</span> <span class=s>&quot; majfaults=&quot;</span> <span class=o>+</span> <span class=n>majfaults</span> <span class=o>+</span> <span class=s>&quot;-&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>base_majfaults</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=kd>final</span> <span class=kt>long</span> <span class=n>uptime</span> <span class=o>=</span> <span class=n>SystemClock</span><span class=p>.</span><span class=na>uptimeMillis</span><span class=p>();</span>
+
+        <span class=n>st</span><span class=p>.</span><span class=na>rel_uptime</span> <span class=o>=</span> <span class=n>uptime</span> <span class=o>-</span> <span class=n>st</span><span class=p>.</span><span class=na>base_uptime</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>base_uptime</span> <span class=o>=</span> <span class=n>uptime</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>rel_utime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>utime</span> <span class=o>-</span> <span class=n>st</span><span class=p>.</span><span class=na>base_utime</span><span class=p>);</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>rel_stime</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>stime</span> <span class=o>-</span> <span class=n>st</span><span class=p>.</span><span class=na>base_stime</span><span class=p>);</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>base_utime</span> <span class=o>=</span> <span class=n>utime</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>base_stime</span> <span class=o>=</span> <span class=n>stime</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>rel_minfaults</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>minfaults</span> <span class=o>-</span> <span class=n>st</span><span class=p>.</span><span class=na>base_minfaults</span><span class=p>);</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>rel_majfaults</span> <span class=o>=</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=p>(</span><span class=n>majfaults</span> <span class=o>-</span> <span class=n>st</span><span class=p>.</span><span class=na>base_majfaults</span><span class=p>);</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>base_minfaults</span> <span class=o>=</span> <span class=n>minfaults</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>base_majfaults</span> <span class=o>=</span> <span class=n>majfaults</span><span class=p>;</span>
+        <span class=n>st</span><span class=p>.</span><span class=na>status</span> <span class=o>=</span> <span class=n>status</span><span class=p>;</span>
+    <span class=p>}</span>
+
+
+    <span class=kd>private</span> <span class=kd>final</span> <span class=kd>static</span> <span class=n>Comparator</span><span class=o>&lt;</span><span class=n>Stats</span><span class=o>&gt;</span> <span class=n>sLoadComparator</span> <span class=o>=</span> <span class=k>new</span> <span class=n>Comparator</span><span class=o>&lt;</span><span class=n>Stats</span><span class=o>&gt;</span><span class=p>()</span> <span class=p>{</span>
+        <span class=kd>public</span> <span class=kd>final</span> <span class=kt>int</span>
+        <span class=nf>compare</span><span class=p>(</span><span class=n>Stats</span> <span class=n>sta</span><span class=p>,</span> <span class=n>Stats</span> <span class=n>stb</span><span class=p>)</span> <span class=p>{</span>
+            <span class=kt>int</span> <span class=n>ta</span> <span class=o>=</span> <span class=n>sta</span><span class=p>.</span><span class=na>rel_utime</span> <span class=o>+</span> <span class=n>sta</span><span class=p>.</span><span class=na>rel_stime</span><span class=p>;</span>
+            <span class=kt>int</span> <span class=n>tb</span> <span class=o>=</span> <span class=n>stb</span><span class=p>.</span><span class=na>rel_utime</span> <span class=o>+</span> <span class=n>stb</span><span class=p>.</span><span class=na>rel_stime</span><span class=p>;</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>ta</span> <span class=o>!=</span> <span class=n>tb</span><span class=p>)</span> <span class=p>{</span>
+                <span class=k>return</span> <span class=n>ta</span> <span class=o>&gt;</span> <span class=n>tb</span> <span class=o>?</span> <span class=o>-</span><span class=mi>1</span> <span class=p>:</span> <span class=mi>1</span><span class=p>;</span>
+            <span class=p>}</span>
+            <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+        <span class=p>}</span>
+    <span class=p>};</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastUserTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelUserTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastSystemTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelSystemTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastIoWaitTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelIoWaitTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastIrqTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelIrqTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastSoftIrqTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelSoftIrqTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=cm>/**</span>
+<span class=cm>     * @return time in milliseconds.</span>
+<span class=cm>     */</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>int</span> <span class=nf>getLastIdleTime</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelIdleTime</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>boolean</span> <span class=nf>hasGoodLastStats</span><span class=p>()</span> <span class=p>{</span>
+        <span class=k>return</span> <span class=n>mRelStatsAreGood</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>final</span> <span class=kd>public</span> <span class=kt>float</span> <span class=nf>getTotalCpuPercent</span><span class=p>()</span> <span class=p>{</span>
+        <span class=kt>int</span> <span class=n>denom</span> <span class=o>=</span> <span class=n>mRelUserTime</span> <span class=o>+</span> <span class=n>mRelSystemTime</span> <span class=o>+</span> <span class=n>mRelIrqTime</span> <span class=o>+</span> <span class=n>mRelIdleTime</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>denom</span> <span class=o>&lt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>return</span> <span class=mi>0</span><span class=p>;</span>
+        <span class=p>}</span>
+        <span class=k>return</span> <span class=p>((</span><span class=kt>float</span><span class=p>)</span> <span class=p>(</span><span class=n>mRelUserTime</span> <span class=o>+</span> <span class=n>mRelSystemTime</span> <span class=o>+</span> <span class=n>mRelIrqTime</span><span class=p>)</span> <span class=o>*</span> <span class=mi>100</span><span class=p>)</span> <span class=o>/</span> <span class=n>denom</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>final</span> <span class=kd>private</span> <span class=n>String</span> <span class=nf>printCurrentLoad</span><span class=p>()</span> <span class=p>{</span>
+        <span class=n>StringWriter</span> <span class=n>sw</span> <span class=o>=</span> <span class=k>new</span> <span class=n>StringWriter</span><span class=p>();</span>
+        <span class=n>PrintWriter</span> <span class=n>pw</span> <span class=o>=</span> <span class=k>new</span> <span class=n>PrintWriter</span><span class=p>(</span><span class=n>sw</span><span class=p>,</span> <span class=kc>false</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;Load: &quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>mLoad1</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; / &quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>mLoad5</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; / &quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>(</span><span class=n>mLoad15</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>flush</span><span class=p>();</span>
+        <span class=k>return</span> <span class=n>sw</span><span class=p>.</span><span class=na>toString</span><span class=p>();</span>
+    <span class=p>}</span>
+
+    <span class=nd>@SuppressLint</span><span class=p>(</span><span class=s>&quot;SimpleDateFormat&quot;</span><span class=p>)</span>
+    <span class=kd>final</span> <span class=kd>public</span> <span class=n>String</span> <span class=nf>printCurrentState</span><span class=p>(</span><span class=kt>long</span> <span class=n>now</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kd>final</span> <span class=n>SimpleDateFormat</span> <span class=n>sdf</span> <span class=o>=</span> <span class=k>new</span> <span class=n>SimpleDateFormat</span><span class=p>(</span><span class=s>&quot;yyyy-MM-dd HH:mm:ss.SSS&quot;</span><span class=p>);</span>
+        <span class=n>StringWriter</span> <span class=n>sw</span> <span class=o>=</span> <span class=k>new</span> <span class=n>StringWriter</span><span class=p>();</span>
+        <span class=n>PrintWriter</span> <span class=n>pw</span> <span class=o>=</span> <span class=k>new</span> <span class=n>PrintWriter</span><span class=p>(</span><span class=n>sw</span><span class=p>,</span> <span class=kc>false</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>(</span><span class=s>&quot;&quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;CPU usage from &quot;</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>now</span> <span class=o>&gt;</span> <span class=n>mLastSampleTime</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>now</span> <span class=o>-</span> <span class=n>mLastSampleTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;ms to &quot;</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>now</span> <span class=o>-</span> <span class=n>mCurrentSampleTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;ms ago&quot;</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>else</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>mLastSampleTime</span> <span class=o>-</span> <span class=n>now</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;ms to &quot;</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>mCurrentSampleTime</span> <span class=o>-</span> <span class=n>now</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;ms later&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; (&quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>sdf</span><span class=p>.</span><span class=na>format</span><span class=p>(</span><span class=k>new</span> <span class=n>Date</span><span class=p>(</span><span class=n>mLastSampleWallTime</span><span class=p>)));</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; to &quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>sdf</span><span class=p>.</span><span class=na>format</span><span class=p>(</span><span class=k>new</span> <span class=n>Date</span><span class=p>(</span><span class=n>mCurrentSampleWallTime</span><span class=p>)));</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;)&quot;</span><span class=p>);</span>
+        <span class=kt>long</span> <span class=n>sampleTime</span> <span class=o>=</span> <span class=n>mCurrentSampleTime</span> <span class=o>-</span> <span class=n>mLastSampleTime</span><span class=p>;</span>
+        <span class=kt>long</span> <span class=n>sampleRealTime</span> <span class=o>=</span> <span class=n>mCurrentSampleRealTime</span> <span class=o>-</span> <span class=n>mLastSampleRealTime</span><span class=p>;</span>
+        <span class=kt>long</span> <span class=n>percAwake</span> <span class=o>=</span> <span class=n>sampleRealTime</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>?</span> <span class=p>((</span><span class=n>sampleTime</span> <span class=o>*</span> <span class=mi>100</span><span class=p>)</span> <span class=o>/</span> <span class=n>sampleRealTime</span><span class=p>)</span> <span class=p>:</span> <span class=mi>0</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>percAwake</span> <span class=o>!=</span> <span class=mi>100</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; with &quot;</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>percAwake</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% awake&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>(</span><span class=s>&quot;:&quot;</span><span class=p>);</span>
+        <span class=kd>final</span> <span class=kt>int</span> <span class=n>totalTime</span> <span class=o>=</span> <span class=n>mRelUserTime</span> <span class=o>+</span> <span class=n>mRelSystemTime</span> <span class=o>+</span> <span class=n>mRelIoWaitTime</span>
+                <span class=o>+</span> <span class=n>mRelIrqTime</span> <span class=o>+</span> <span class=n>mRelSoftIrqTime</span> <span class=o>+</span> <span class=n>mRelIdleTime</span><span class=p>;</span>
+
+        <span class=n>Stats</span> <span class=n>st</span> <span class=o>=</span> <span class=n>mCurrentProcStat</span><span class=p>;</span>
+        <span class=n>printProcessCPU</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span>
+                <span class=n>st</span><span class=p>.</span><span class=na>pid</span><span class=p>,</span> <span class=n>st</span><span class=p>.</span><span class=na>name</span><span class=p>,</span> <span class=n>st</span><span class=p>.</span><span class=na>status</span><span class=p>,</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_uptime</span><span class=p>,</span>
+                <span class=n>st</span><span class=p>.</span><span class=na>rel_utime</span><span class=p>,</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_stime</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_minfaults</span><span class=p>,</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_majfaults</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>st</span><span class=p>.</span><span class=na>workingThreads</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>(</span><span class=s>&quot;thread stats:&quot;</span><span class=p>);</span>
+            <span class=kt>int</span> <span class=n>M</span> <span class=o>=</span> <span class=n>st</span><span class=p>.</span><span class=na>workingThreads</span><span class=p>.</span><span class=na>size</span><span class=p>();</span>
+            <span class=k>for</span> <span class=p>(</span><span class=kt>int</span> <span class=n>j</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>j</span> <span class=o>&lt;</span> <span class=n>M</span><span class=p>;</span> <span class=n>j</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>Stats</span> <span class=n>tst</span> <span class=o>=</span> <span class=n>st</span><span class=p>.</span><span class=na>workingThreads</span><span class=p>.</span><span class=na>get</span><span class=p>(</span><span class=n>j</span><span class=p>);</span>
+                <span class=n>printProcessCPU</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span>
+                        <span class=n>tst</span><span class=p>.</span><span class=na>pid</span><span class=p>,</span> <span class=n>tst</span><span class=p>.</span><span class=na>name</span><span class=p>,</span> <span class=n>tst</span><span class=p>.</span><span class=na>status</span><span class=p>,</span> <span class=p>(</span><span class=kt>int</span><span class=p>)</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_uptime</span><span class=p>,</span>
+                        <span class=n>tst</span><span class=p>.</span><span class=na>rel_utime</span><span class=p>,</span> <span class=n>tst</span><span class=p>.</span><span class=na>rel_stime</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>tst</span><span class=p>.</span><span class=na>rel_minfaults</span><span class=p>,</span> <span class=n>tst</span><span class=p>.</span><span class=na>rel_majfaults</span><span class=p>);</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+
+        <span class=n>printProcessCPU</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=o>-</span><span class=mi>1</span><span class=p>,</span> <span class=s>&quot;TOTAL&quot;</span><span class=p>,</span> <span class=s>&quot;&quot;</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>,</span> <span class=n>mRelUserTime</span><span class=p>,</span> <span class=n>mRelSystemTime</span><span class=p>,</span>
+                <span class=n>mRelIoWaitTime</span><span class=p>,</span> <span class=n>mRelIrqTime</span><span class=p>,</span> <span class=n>mRelSoftIrqTime</span><span class=p>,</span> <span class=n>mRelIdleTime</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=mi>0</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>(</span><span class=n>printCurrentLoad</span><span class=p>());</span>
+
+        <span class=k>if</span> <span class=p>(</span><span class=n>DEBUG</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>i</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;totalTime &quot;</span> <span class=o>+</span> <span class=n>totalTime</span> <span class=o>+</span> <span class=s>&quot; over sample time &quot;</span>
+                    <span class=o>+</span> <span class=p>(</span><span class=n>mCurrentSampleTime</span> <span class=o>-</span> <span class=n>mLastSampleTime</span><span class=p>)</span> <span class=o>+</span> <span class=s>&quot;, real uptime:&quot;</span> <span class=o>+</span> <span class=n>st</span><span class=p>.</span><span class=na>rel_uptime</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>flush</span><span class=p>();</span>
+        <span class=k>return</span> <span class=n>sw</span><span class=p>.</span><span class=na>toString</span><span class=p>();</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>printRatio</span><span class=p>(</span><span class=n>PrintWriter</span> <span class=n>pw</span><span class=p>,</span> <span class=kt>long</span> <span class=n>numerator</span><span class=p>,</span> <span class=kt>long</span> <span class=n>denominator</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kt>long</span> <span class=n>thousands</span> <span class=o>=</span> <span class=p>(</span><span class=n>numerator</span> <span class=o>*</span> <span class=mi>1000</span><span class=p>)</span> <span class=o>/</span> <span class=n>denominator</span><span class=p>;</span>
+        <span class=kt>long</span> <span class=n>hundreds</span> <span class=o>=</span> <span class=n>thousands</span> <span class=o>/</span> <span class=mi>10</span><span class=p>;</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>hundreds</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>hundreds</span> <span class=o>&lt;</span> <span class=mi>10</span><span class=p>)</span> <span class=p>{</span>
+            <span class=kt>long</span> <span class=n>remainder</span> <span class=o>=</span> <span class=n>thousands</span> <span class=o>-</span> <span class=p>(</span><span class=n>hundreds</span> <span class=o>*</span> <span class=mi>10</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>remainder</span> <span class=o>!=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=sc>&#39;.&#39;</span><span class=p>);</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>remainder</span><span class=p>);</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>printProcessCPU</span><span class=p>(</span><span class=n>PrintWriter</span> <span class=n>pw</span><span class=p>,</span> <span class=kt>int</span> <span class=n>pid</span><span class=p>,</span> <span class=n>String</span> <span class=n>label</span><span class=p>,</span> <span class=n>String</span> <span class=n>status</span><span class=p>,</span>
+                                 <span class=kt>int</span> <span class=n>totalTime</span><span class=p>,</span> <span class=kt>int</span> <span class=n>user</span><span class=p>,</span> <span class=kt>int</span> <span class=n>system</span><span class=p>,</span> <span class=kt>int</span> <span class=n>iowait</span><span class=p>,</span> <span class=kt>int</span> <span class=n>irq</span><span class=p>,</span> <span class=kt>int</span> <span class=n>softIrq</span><span class=p>,</span> <span class=kt>int</span> <span class=n>idle</span><span class=p>,</span>
+                                 <span class=kt>int</span> <span class=n>minFaults</span><span class=p>,</span> <span class=kt>int</span> <span class=n>majFaults</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>totalTime</span> <span class=o>==</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>totalTime</span> <span class=o>=</span> <span class=mi>1</span><span class=p>;</span>
+        <span class=p>}</span>
+        <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>user</span> <span class=o>+</span> <span class=n>system</span> <span class=o>+</span> <span class=n>iowait</span> <span class=o>+</span> <span class=n>irq</span> <span class=o>+</span> <span class=n>softIrq</span> <span class=o>+</span> <span class=n>idle</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% &quot;</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>pid</span> <span class=o>&gt;=</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>pid</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;/&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>label</span> <span class=o>+</span> <span class=s>&quot;(&quot;</span> <span class=o>+</span> <span class=n>status</span> <span class=o>+</span> <span class=s>&quot;)&quot;</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;: &quot;</span><span class=p>);</span>
+        <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>user</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% user + &quot;</span><span class=p>);</span>
+        <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>system</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% kernel&quot;</span><span class=p>);</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>iowait</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; + &quot;</span><span class=p>);</span>
+            <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>iowait</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% iowait&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>irq</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; + &quot;</span><span class=p>);</span>
+            <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>irq</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% irq&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>softIrq</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; + &quot;</span><span class=p>);</span>
+            <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>softIrq</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% softirq&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>idle</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; + &quot;</span><span class=p>);</span>
+            <span class=n>printRatio</span><span class=p>(</span><span class=n>pw</span><span class=p>,</span> <span class=n>idle</span><span class=p>,</span> <span class=n>totalTime</span><span class=p>);</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot;% idle&quot;</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>minFaults</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>||</span> <span class=n>majFaults</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; / faults:&quot;</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>minFaults</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; &quot;</span><span class=p>);</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>minFaults</span><span class=p>);</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; minor&quot;</span><span class=p>);</span>
+            <span class=p>}</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>majFaults</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; &quot;</span><span class=p>);</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=n>majFaults</span><span class=p>);</span>
+                <span class=n>pw</span><span class=p>.</span><span class=na>print</span><span class=p>(</span><span class=s>&quot; major&quot;</span><span class=p>);</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+        <span class=n>pw</span><span class=p>.</span><span class=na>println</span><span class=p>();</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=n>String</span> <span class=nf>readFile</span><span class=p>(</span><span class=n>String</span> <span class=n>file</span><span class=p>,</span> <span class=kt>char</span> <span class=n>endChar</span><span class=p>)</span> <span class=p>{</span>
+        <span class=c1>// Permit disk reads here, as /proc/meminfo isn&#39;t really &quot;on</span>
+        <span class=c1>// disk&quot; and should be fast.  TODO: make BlockGuard ignore</span>
+        <span class=c1>// /proc/ and /sys/ files perhaps?</span>
+        <span class=n>FileInputStream</span> <span class=n>is</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>is</span> <span class=o>=</span> <span class=k>new</span> <span class=n>FileInputStream</span><span class=p>(</span><span class=n>file</span><span class=p>);</span>
+            <span class=kt>int</span> <span class=n>len</span> <span class=o>=</span> <span class=n>is</span><span class=p>.</span><span class=na>read</span><span class=p>(</span><span class=n>mBuffer</span><span class=p>);</span>
+            <span class=n>is</span><span class=p>.</span><span class=na>close</span><span class=p>();</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>len</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+                <span class=kt>int</span> <span class=n>i</span><span class=p>;</span>
+                <span class=k>for</span> <span class=p>(</span><span class=n>i</span> <span class=o>=</span> <span class=mi>0</span><span class=p>;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>len</span><span class=p>;</span> <span class=n>i</span><span class=o>++</span><span class=p>)</span> <span class=p>{</span>
+                    <span class=k>if</span> <span class=p>(</span><span class=n>mBuffer</span><span class=o>[</span><span class=n>i</span><span class=o>]</span> <span class=o>==</span> <span class=n>endChar</span> <span class=o>||</span> <span class=n>mBuffer</span><span class=o>[</span><span class=n>i</span><span class=o>]</span> <span class=o>==</span> <span class=mi>10</span><span class=p>)</span> <span class=p>{</span>
+                        <span class=k>break</span><span class=p>;</span>
+                    <span class=p>}</span>
+                <span class=p>}</span>
+                <span class=k>return</span> <span class=k>new</span> <span class=n>String</span><span class=p>(</span><span class=n>mBuffer</span><span class=p>,</span> <span class=mi>0</span><span class=p>,</span> <span class=n>i</span><span class=p>);</span>
+            <span class=p>}</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>java</span><span class=p>.</span><span class=na>io</span><span class=p>.</span><span class=na>FileNotFoundException</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=c1>//</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>IOException</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=c1>//</span>
+        <span class=p>}</span> <span class=k>finally</span> <span class=p>{</span>
+            <span class=n>SystemInfo</span><span class=p>.</span><span class=na>closeQuietly</span><span class=p>(</span><span class=n>is</span><span class=p>);</span>
+        <span class=p>}</span>
+        <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kt>void</span> <span class=nf>getName</span><span class=p>(</span><span class=n>Stats</span> <span class=n>st</span><span class=p>,</span> <span class=n>String</span> <span class=n>cmdlineFile</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>String</span> <span class=n>newName</span> <span class=o>=</span> <span class=n>st</span><span class=p>.</span><span class=na>name</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>st</span><span class=p>.</span><span class=na>name</span> <span class=o>==</span> <span class=kc>null</span> <span class=o>||</span> <span class=n>st</span><span class=p>.</span><span class=na>name</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=s>&quot;app_process&quot;</span><span class=p>)</span>
+                <span class=o>||</span> <span class=n>st</span><span class=p>.</span><span class=na>name</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=s>&quot;&lt;pre-initialized&gt;&quot;</span><span class=p>))</span> <span class=p>{</span>
+            <span class=n>String</span> <span class=n>cmdName</span> <span class=o>=</span> <span class=n>readFile</span><span class=p>(</span><span class=n>cmdlineFile</span><span class=p>,</span> <span class=sc>&#39;\0&#39;</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>cmdName</span> <span class=o>!=</span> <span class=kc>null</span> <span class=o>&amp;&amp;</span> <span class=n>cmdName</span><span class=p>.</span><span class=na>length</span><span class=p>()</span> <span class=o>&gt;</span> <span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>newName</span> <span class=o>=</span> <span class=n>cmdName</span><span class=p>;</span>
+                <span class=kt>int</span> <span class=n>i</span> <span class=o>=</span> <span class=n>newName</span><span class=p>.</span><span class=na>lastIndexOf</span><span class=p>(</span><span class=s>&quot;/&quot;</span><span class=p>);</span>
+                <span class=k>if</span> <span class=p>(</span><span class=n>i</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>&amp;&amp;</span> <span class=n>i</span> <span class=o>&lt;</span> <span class=n>newName</span><span class=p>.</span><span class=na>length</span><span class=p>()</span> <span class=o>-</span> <span class=mi>1</span><span class=p>)</span> <span class=p>{</span>
+                    <span class=n>newName</span> <span class=o>=</span> <span class=n>newName</span><span class=p>.</span><span class=na>substring</span><span class=p>(</span><span class=n>i</span> <span class=o>+</span> <span class=mi>1</span><span class=p>);</span>
+                <span class=p>}</span>
+            <span class=p>}</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>newName</span> <span class=o>==</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>newName</span> <span class=o>=</span> <span class=n>st</span><span class=p>.</span><span class=na>baseName</span><span class=p>;</span>
+            <span class=p>}</span>
+        <span class=p>}</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>st</span><span class=p>.</span><span class=na>name</span> <span class=o>==</span> <span class=kc>null</span> <span class=o>||</span> <span class=o>!</span><span class=n>newName</span><span class=p>.</span><span class=na>equals</span><span class=p>(</span><span class=n>st</span><span class=p>.</span><span class=na>name</span><span class=p>))</span> <span class=p>{</span>
+            <span class=n>st</span><span class=p>.</span><span class=na>name</span> <span class=o>=</span> <span class=n>newName</span><span class=p>;</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+
+    <span class=nd>@Nullable</span>
+    <span class=kd>protected</span> <span class=n>String</span><span class=o>[]</span> <span class=nf>readProcFile</span><span class=p>(</span><span class=n>String</span> <span class=n>file</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>RandomAccessFile</span> <span class=n>procFile</span> <span class=o>=</span> <span class=kc>null</span><span class=p>;</span>
+        <span class=n>String</span> <span class=n>procFileContents</span><span class=p>;</span>
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>procFile</span> <span class=o>=</span> <span class=k>new</span> <span class=n>RandomAccessFile</span><span class=p>(</span><span class=n>file</span><span class=p>,</span> <span class=s>&quot;r&quot;</span><span class=p>);</span>
+            <span class=n>procFileContents</span> <span class=o>=</span> <span class=n>procFile</span><span class=p>.</span><span class=na>readLine</span><span class=p>();</span>
+            <span class=kt>int</span> <span class=n>rightIndex</span> <span class=o>=</span> <span class=n>procFileContents</span><span class=p>.</span><span class=na>indexOf</span><span class=p>(</span><span class=s>&quot;)&quot;</span><span class=p>);</span>
+            <span class=k>if</span> <span class=p>(</span><span class=n>rightIndex</span> <span class=o>&gt;</span> <span class=mi>0</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>procFileContents</span> <span class=o>=</span> <span class=n>procFileContents</span><span class=p>.</span><span class=na>substring</span><span class=p>(</span><span class=n>rightIndex</span> <span class=o>+</span> <span class=mi>2</span><span class=p>);</span>
+            <span class=p>}</span>
+
+            <span class=k>return</span> <span class=n>procFileContents</span><span class=p>.</span><span class=na>split</span><span class=p>(</span><span class=s>&quot; &quot;</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>IOException</span> <span class=n>ioe</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>ioe</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+            <span class=k>return</span> <span class=kc>null</span><span class=p>;</span>
+        <span class=p>}</span> <span class=k>finally</span> <span class=p>{</span>
+            <span class=n>SystemInfo</span><span class=p>.</span><span class=na>closeQuietly</span><span class=p>(</span><span class=n>procFile</span><span class=p>);</span>
+        <span class=p>}</span>
+
+    <span class=p>}</span>
+
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_3 name=__tabbed_1 type=radio><label for=__tabbed_1_3>Sysconf</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17
+18
+19
+20
+21
+22
+23
+24
+25
+26
+27
+28
+29
+30
+31
+32
+33
+34
+35
+36
+37
+38
+39
+40
+41
+42
+43
+44
+45
+46
+47
+48
+49
+50
+51
+52
+53
+54
+55
+56
+57
+58
+59
+60
+61
+62
+63
+64
+65
+66
+67
+68
+69
+70
+71
+72</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=cm>/**</span>
+<span class=cm> * Use {@link libcore.io.Posix} to obtain values from SysConf without having to include call through</span>
+<span class=cm> * to JNI directly, and let the Android Framework&#39;s classes do that for us.</span>
+<span class=cm> *</span>
+<span class=cm> * &lt;p&gt;The singleton instance of the Posix class was made directly accessible from Lollipop (SDK 21)</span>
+<span class=cm> * onwards; from ICS to Lollipop we can access an instance at {@code libcore.io.Libcore.os} using</span>
+<span class=cm> * reflection.</span>
+<span class=cm> *</span>
+<span class=cm> * @see &lt;a href=&quot;https://fburl.com/8o3hnt3k&quot;&gt;The Posix Class in AOSP&lt;/a&gt;</span>
+<span class=cm> * @see &lt;a href=&quot;https://fburl.com/wf5sbpjs&quot;&gt;The CPP implementation of Posix&lt;/a&gt;</span>
+<span class=cm> * @see &lt;a href=&quot;https://fburl.com/9kyylxzu&quot;&gt;Libcore singleton with a Posix instance&lt;/a&gt;</span>
+<span class=cm> */</span>
+<span class=cm>/*package*/</span> <span class=kd>class</span> <span class=nc>Sysconf</span> <span class=p>{</span>
+
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kd>final</span> <span class=n>String</span> <span class=n>TAG</span> <span class=o>=</span> <span class=s>&quot;Sysconf&quot;</span><span class=p>;</span>
+    <span class=kd>protected</span> <span class=kd>static</span> <span class=kd>final</span> <span class=kt>long</span> <span class=n>DEFAULT_CLOCK_TICKS_PER_SECOND</span> <span class=o>=</span> <span class=mi>100</span><span class=p>;</span>
+
+
+    <span class=nd>@SuppressLint</span><span class=p>(</span><span class=s>&quot;ObsoleteSdkInt&quot;</span><span class=p>)</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>long</span> <span class=nf>getScClkTck</span><span class=p>(</span><span class=kt>long</span> <span class=n>fallback</span><span class=p>)</span> <span class=p>{</span>
+        <span class=kt>long</span> <span class=n>result</span> <span class=o>=</span> <span class=n>fallback</span><span class=p>;</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>Build</span><span class=p>.</span><span class=na>VERSION</span><span class=p>.</span><span class=na>SDK_INT</span> <span class=o>&gt;=</span> <span class=mi>21</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>result</span> <span class=o>=</span> <span class=n>Os</span><span class=p>.</span><span class=na>sysconf</span><span class=p>(</span><span class=n>OsConstants</span><span class=p>.</span><span class=na>_SC_CLK_TCK</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=p>(</span><span class=n>Build</span><span class=p>.</span><span class=na>VERSION</span><span class=p>.</span><span class=na>SDK_INT</span> <span class=o>&gt;=</span> <span class=mi>14</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>result</span> <span class=o>=</span> <span class=n>fromLibcore</span><span class=p>(</span><span class=s>&quot;_SC_CLK_TCK&quot;</span><span class=p>,</span> <span class=n>fallback</span><span class=p>);</span>
+        <span class=p>}</span>
+
+        <span class=k>return</span> <span class=n>result</span> <span class=o>&gt;</span> <span class=mi>0</span> <span class=o>?</span> <span class=n>result</span> <span class=p>:</span> <span class=n>fallback</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>long</span> <span class=nf>getScClkTck</span><span class=p>()</span> <span class=p>{</span>
+       <span class=k>return</span> <span class=n>getScClkTck</span><span class=p>(</span><span class=n>DEFAULT_CLOCK_TICKS_PER_SECOND</span><span class=p>);</span>
+    <span class=p>}</span>
+
+    <span class=nd>@SuppressLint</span><span class=p>(</span><span class=s>&quot;ObsoleteSdkInt&quot;</span><span class=p>)</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>long</span> <span class=nf>getScNProcessorsConf</span><span class=p>(</span><span class=kt>long</span> <span class=n>fallback</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>if</span> <span class=p>(</span><span class=n>Build</span><span class=p>.</span><span class=na>VERSION</span><span class=p>.</span><span class=na>SDK_INT</span> <span class=o>&gt;=</span> <span class=mi>21</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>return</span> <span class=n>Os</span><span class=p>.</span><span class=na>sysconf</span><span class=p>(</span><span class=n>OsConstants</span><span class=p>.</span><span class=na>_SC_NPROCESSORS_CONF</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>else</span> <span class=k>if</span> <span class=p>(</span><span class=n>Build</span><span class=p>.</span><span class=na>VERSION</span><span class=p>.</span><span class=na>SDK_INT</span> <span class=o>&gt;=</span> <span class=mi>14</span><span class=p>)</span> <span class=p>{</span>
+            <span class=k>return</span> <span class=n>fromLibcore</span><span class=p>(</span><span class=s>&quot;_SC_NPROCESSORS_CONF&quot;</span><span class=p>,</span> <span class=n>fallback</span><span class=p>);</span>
+        <span class=p>}</span>
+
+        <span class=k>return</span> <span class=n>fallback</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kt>long</span> <span class=nf>fromLibcore</span><span class=p>(</span><span class=n>String</span> <span class=n>field</span><span class=p>,</span> <span class=kt>long</span> <span class=n>fallback</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>Class</span> <span class=n>osConstantsClass</span> <span class=o>=</span> <span class=n>Class</span><span class=p>.</span><span class=na>forName</span><span class=p>(</span><span class=s>&quot;libcore.io.OsConstants&quot;</span><span class=p>);</span>
+            <span class=kt>int</span> <span class=n>scClkTck</span> <span class=o>=</span> <span class=n>osConstantsClass</span><span class=p>.</span><span class=na>getField</span><span class=p>(</span><span class=n>field</span><span class=p>).</span><span class=na>getInt</span><span class=p>(</span><span class=kc>null</span><span class=p>);</span>
+            <span class=n>Class</span> <span class=n>libcoreClass</span> <span class=o>=</span> <span class=n>Class</span><span class=p>.</span><span class=na>forName</span><span class=p>(</span><span class=s>&quot;libcore.io.Libcore&quot;</span><span class=p>);</span>
+            <span class=n>Class</span> <span class=n>osClass</span> <span class=o>=</span> <span class=n>Class</span><span class=p>.</span><span class=na>forName</span><span class=p>(</span><span class=s>&quot;libcore.io.Os&quot;</span><span class=p>);</span>
+            <span class=n>Object</span> <span class=n>osInstance</span> <span class=o>=</span> <span class=n>libcoreClass</span><span class=p>.</span><span class=na>getField</span><span class=p>(</span><span class=s>&quot;os&quot;</span><span class=p>).</span><span class=na>get</span><span class=p>(</span><span class=kc>null</span><span class=p>);</span>
+            <span class=k>return</span> <span class=p>(</span><span class=kt>long</span><span class=p>)</span> <span class=n>osClass</span><span class=p>.</span><span class=na>getMethod</span><span class=p>(</span><span class=s>&quot;sysconf&quot;</span><span class=p>,</span> <span class=kt>int</span><span class=p>.</span><span class=na>class</span><span class=p>).</span><span class=na>invoke</span><span class=p>(</span><span class=n>osInstance</span><span class=p>,</span> <span class=n>scClkTck</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>NoSuchMethodException</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>logReflectionException</span><span class=p>(</span><span class=n>ex</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>NoSuchFieldException</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>logReflectionException</span><span class=p>(</span><span class=n>ex</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>IllegalAccessException</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>logReflectionException</span><span class=p>(</span><span class=n>ex</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>InvocationTargetException</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>logReflectionException</span><span class=p>(</span><span class=n>ex</span><span class=p>);</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>ClassNotFoundException</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>logReflectionException</span><span class=p>(</span><span class=n>ex</span><span class=p>);</span>
+        <span class=p>}</span>
+
+        <span class=k>return</span> <span class=n>fallback</span><span class=p>;</span>
+    <span class=p>}</span>
+
+    <span class=kd>private</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>logReflectionException</span><span class=p>(</span><span class=n>Exception</span> <span class=n>ex</span><span class=p>)</span> <span class=p>{</span>
+        <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=n>TAG</span><span class=p>,</span> <span class=s>&quot;Unable to read _SC_CLK_TCK by reflection&quot;</span><span class=p>,</span> <span class=n>ex</span><span class=p>);</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> <input id=__tabbed_1_4 name=__tabbed_1 type=radio><label for=__tabbed_1_4>ShellExecutor</label><div class=tabbed-content> <table class=highlighttable><tr><td class=linenos><div class=linenodiv><pre><span></span> 1
+ 2
+ 3
+ 4
+ 5
+ 6
+ 7
+ 8
+ 9
+10
+11
+12
+13
+14
+15
+16
+17</pre></div></td><td class=code><div class=highlight><pre><span></span><code><span class=kd>class</span> <span class=nc>ShellExecutor</span> <span class=p>{</span>
+    <span class=kd>public</span> <span class=kd>static</span> <span class=kt>void</span> <span class=nf>execute</span><span class=p>(</span><span class=n>String</span><span class=p>...</span> <span class=n>cmd</span><span class=p>)</span> <span class=p>{</span>
+        <span class=k>try</span> <span class=p>{</span>
+            <span class=n>Process</span> <span class=n>process</span> <span class=o>=</span> <span class=n>Runtime</span><span class=p>.</span><span class=na>getRuntime</span><span class=p>().</span><span class=na>exec</span><span class=p>(</span><span class=s>&quot;cat /proc/loadavg&quot;</span><span class=p>);</span>
+            <span class=n>process</span><span class=p>.</span><span class=na>waitFor</span><span class=p>();</span>
+            <span class=n>BufferedReader</span> <span class=n>in</span> <span class=o>=</span> <span class=k>new</span> <span class=n>BufferedReader</span><span class=p>(</span><span class=k>new</span> <span class=n>InputStreamReader</span><span class=p>(</span><span class=n>process</span><span class=p>.</span><span class=na>getInputStream</span><span class=p>()));</span>
+            <span class=n>StringBuilder</span> <span class=n>stringBuilder</span> <span class=o>=</span> <span class=k>new</span> <span class=n>StringBuilder</span><span class=p>(</span><span class=s>&quot;result=&quot;</span><span class=p>);</span>
+            <span class=n>String</span> <span class=n>line</span><span class=p>;</span>
+            <span class=k>while</span> <span class=p>((</span><span class=n>line</span> <span class=o>=</span> <span class=n>in</span><span class=p>.</span><span class=na>readLine</span><span class=p>())</span> <span class=o>!=</span> <span class=kc>null</span><span class=p>)</span> <span class=p>{</span>
+                <span class=n>stringBuilder</span><span class=p>.</span><span class=na>append</span><span class=p>(</span><span class=n>line</span><span class=p>).</span><span class=na>append</span><span class=p>(</span><span class=s>&quot;\n&quot;</span><span class=p>);</span>
+            <span class=p>}</span>
+            <span class=n>android</span><span class=p>.</span><span class=na>util</span><span class=p>.</span><span class=na>Log</span><span class=p>.</span><span class=na>e</span><span class=p>(</span><span class=s>&quot;ProcessCpuTracker&quot;</span><span class=p>,</span> <span class=n>stringBuilder</span><span class=p>.</span><span class=na>toString</span><span class=p>());</span>
+        <span class=p>}</span> <span class=k>catch</span> <span class=p>(</span><span class=n>Exception</span> <span class=n>e</span><span class=p>)</span> <span class=p>{</span>
+            <span class=n>e</span><span class=p>.</span><span class=na>printStackTrace</span><span class=p>();</span>
+        <span class=p>}</span>
+    <span class=p>}</span>
+<span class=p>}</span>
+</code></pre></div> </td></tr></table> </div> </div> <hr> <div class=md-source-date> <small> 最后更新: <span class="git-revision-date-localized-plugin git-revision-date-localized-plugin-date">2021年3月8日</span> </small> </div> <h2 id=__comments>评论</h2> <div id=disqus_thread></div> <script>var disqus_config=function(){this.page.url="https://blog.yorek.xyz/android/paid/master/stuck_1/",this.page.identifier="/android/paid/master/stuck_1/"};window.addEventListener("load",function(){var e=document,i=e.createElement("script");i.src="//yorekliu.disqus.com/embed.js",i.setAttribute("data-timestamp",+new Date),(e.head||e.body).appendChild(i)})</script> </article> </div> </div> </main> <footer class=md-footer> <div class=md-footer-nav> <nav class="md-footer-nav__inner md-grid" aria-label=Footer> <a href=../memory_2/ class="md-footer-nav__link md-footer-nav__link--prev" rel=prev> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12z"/></svg> </div> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 上一页 </span> 04 | 内存优化（下）：内存优化这件事，应该从哪里着手？ </div> </div> </a> <a href=../stuck_2/ class="md-footer-nav__link md-footer-nav__link--next" rel=next> <div class=md-footer-nav__title> <div class=md-ellipsis> <span class=md-footer-nav__direction> 下一页 </span> 06 | 卡顿优化（下）：如何监控应用卡顿？ </div> </div> <div class="md-footer-nav__button md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M4 11v2h12l-5.5 5.5 1.42 1.42L19.84 12l-7.92-7.92L10.5 5.5 16 11H4z"/></svg> </div> </a> </nav> </div> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-footer-copyright> <div class=md-footer-copyright__highlight> &copy; 2021 Yorek </div> Made with <a href=https://squidfunk.github.io/mkdocs-material/ target=_blank rel=noopener> Material for MkDocs </a> </div> <div class=md-footer-social> <a href=https://github.com/YorekLiu target=_blank rel=noopener title=github.com class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M12 2A10 10 0 002 12c0 4.42 2.87 8.17 6.84 9.5.5.08.66-.23.66-.5v-1.69c-2.77.6-3.36-1.34-3.36-1.34-.46-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.87 1.52 2.34 1.07 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.92 0-1.11.38-2 1.03-2.71-.1-.25-.45-1.29.1-2.64 0 0 .84-.27 2.75 1.02.79-.22 1.65-.33 2.5-.33.85 0 1.71.11 2.5.33 1.91-1.29 2.75-1.02 2.75-1.02.55 1.35.2 2.39.1 2.64.65.71 1.03 1.6 1.03 2.71 0 3.82-2.34 4.66-4.57 4.91.36.31.69.92.69 1.85V21c0 .27.16.59.67.5C19.14 20.16 22 16.42 22 12A10 10 0 0012 2z"/></svg> </a> <a href=lyytogether@gmail.com target=_blank rel=noopener title class=md-footer-social__link> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 8l-8 5-8-5V6l8 5 8-5m0-2H4c-1.11 0-2 .89-2 2v12a2 2 0 002 2h16a2 2 0 002-2V6a2 2 0 00-2-2z"/></svg> </a> </div> </div> </div> </footer> </div> <script src=../../../../assets/javascripts/vendor.93c04032.min.js></script> <script src=../../../../assets/javascripts/bundle.83e5331e.min.js></script><script id=__lang type=application/json>{"clipboard.copy": "\u590d\u5236", "clipboard.copied": "\u5df2\u590d\u5236", "search.config.lang": "ja", "search.config.pipeline": "trimmer, stemmer", "search.config.separator": "[\\uff0c\\u3002]+", "search.placeholder": "\u641c\u7d22", "search.result.placeholder": "\u952e\u5165\u4ee5\u5f00\u59cb\u641c\u7d22", "search.result.none": "\u6ca1\u6709\u627e\u5230\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.one": "\u627e\u5230 1 \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.other": "# \u4e2a\u7b26\u5408\u6761\u4ef6\u7684\u7ed3\u679c", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.term.missing": "Missing"}</script> <script>
         app = initialize({
           base: "../../../..",
           features: ['navigation.tabs', 'navigation.instant'],
